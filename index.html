@@ -404,6 +404,73 @@
   @keyframes toastIn  { from { opacity: 0; transform: translateY(-14px) scale(0.96); } to { opacity: 1; transform: none; } }
   @keyframes toastOut { to { opacity: 0; transform: translateY(-10px) scale(0.97); } }
 
+  /* Checklist can name keyboard shortcuts inline */
+  .obj-item kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.62rem;
+    background: #0b1220;
+    border: 1px solid var(--panel-border);
+    border-radius: 3px;
+    padding: 0 3px;
+    color: var(--text);
+  }
+
+  /* ============ FIRST-RUN COACH MARKS ============ */
+  #coach {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: none;
+  }
+  #coach.show { display: block; }
+  #coach-hole {
+    position: fixed;
+    border-radius: 10px;
+    box-shadow: 0 0 0 9999px rgba(4, 7, 14, 0.84);
+    border: 2px solid var(--accent);
+    pointer-events: none;
+    transition: top 0.32s cubic-bezier(0.4,0,0.2,1), left 0.32s cubic-bezier(0.4,0,0.2,1),
+                width 0.32s cubic-bezier(0.4,0,0.2,1), height 0.32s cubic-bezier(0.4,0,0.2,1);
+  }
+  #coach-hole::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 10px;
+    border: 2px solid var(--accent);
+    animation: coachPulse 1.8s ease-out infinite;
+  }
+  @keyframes coachPulse {
+    0%   { transform: scale(1);    opacity: 0.9; }
+    100% { transform: scale(1.16); opacity: 0; }
+  }
+  #coach-card {
+    position: fixed;
+    width: 316px;
+    max-width: calc(100vw - 32px);
+    background: linear-gradient(180deg, #17223a, var(--panel-bg));
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 18px 46px #000000cc;
+    transition: top 0.32s cubic-bezier(0.4,0,0.2,1), left 0.32s cubic-bezier(0.4,0,0.2,1);
+  }
+  #coach-step {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  #coach-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+  #coach-text { font-size: 0.81rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 14px; }
+  #coach-text b { color: var(--text); }
+  .coach-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .coach-dots { display: flex; gap: 5px; }
+  .coach-dot { width: 6px; height: 6px; border-radius: 50%; background: #33415a; }
+  .coach-dot.on { background: var(--accent); }
+
   /* ============ MODALS ============ */
   .modal-backdrop {
     position: absolute;
@@ -651,6 +718,22 @@
     </div>
   </div>
 
+  <div id="coach">
+    <div id="coach-hole"></div>
+    <div id="coach-card">
+      <div id="coach-step"></div>
+      <div id="coach-title"></div>
+      <div id="coach-text"></div>
+      <div class="coach-actions">
+        <div class="coach-dots" id="coach-dots"></div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-ghost" id="coach-skip">Skip</button>
+          <button class="btn btn-primary" id="coach-next">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="viewport-container">
     <canvas id="simCanvas"></canvas>
 
@@ -865,7 +948,9 @@ const EULER_REF_LEN    = 2.4;   // reference length for buckling scaling
 const GRID_SNAP        = 0.5;   // metres
 const ELASTIC_MODULUS  = 200000;
 const RISK_THRESHOLD   = 0.75;  // stress fraction that counts as "at risk"
-const SAG_SPAN_RATIO   = 60;    // serviceable deflection limit = span / this
+const SAG_SPAN_RATIO   = 40;    // deck cracks past a deflection of span / this
+const SAG_WARN_FRACTION = 0.55; // fraction of that limit at which the deck starts groaning
+const EFFICIENCY_FRACTION = 0.75; // spend under this share of budget to earn the third star
 
 // ============================================================
 //  CURRICULUM LEVELS
@@ -875,10 +960,11 @@ const LEVELS = [
     id: 1,
     title: "1. The Simple Span",
     goal: "Carry a 1.4 tonne car across an 8 metre gap.",
-    desc: "Lay a flat roadway straight across and it will hold — but watch it <b>sag</b> as the car rolls over it. A deck that flexes that much has failed even without snapping. Add <b>triangles</b> above or below it to turn a bending plank into a rigid truss, and watch the sag reading collapse.",
+    desc: "Start by laying a <b>roadway</b> straight across and pressing Test. It will sag, crack and drop the car into the river — a flat deck has nothing to stop it bending. Then brace it: pick a second material and add <b>triangles</b> above or below the deck.",
     concept: "Triangulation",
-    tip: "A square frame folds over flat without any member changing length. A triangle can't — to change its shape, something has to physically stretch or crush. That is why every truss is built from triangles.",
-    budget: 1500,
+    tip: "A square frame folds flat without any member changing length. A triangle can't — to change its shape something must physically stretch or crush. That is why every truss is built from triangles.",
+    budget: 2200,
+    tutorial: true,
     anchors: [ { x: 4, y: 7, fixed: true }, { x: 12, y: 7, fixed: true } ],
     terrain: { leftBank: 4, rightBank: 12, groundY: 7, waterY: 10.5 },
     carMass: 1400
@@ -886,11 +972,12 @@ const LEVELS = [
   {
     id: 2,
     title: "2. The Deep Gorge",
-    goal: "Span a 12 metre canyon with the structure below the deck.",
-    desc: "Ships need clear air above the roadway, so everything must sit <b>underneath</b> it. Build an arched deck truss down into the gorge and anchor it to the lower wall bolts.",
-    concept: "Arches & thrust",
-    tip: "Watch the lower members glow red as the car crosses. They are in compression: the arch is pushing outward against the canyon walls, and the rock pushes straight back.",
-    budget: 2500,
+    goal: "Span a 12 metre canyon with tall ships passing above.",
+    desc: "Cargo ships need clear air over the roadway, so <b>nothing may be built above the deck</b>. Everything that holds this bridge up has to hang below it. Use the lower wall anchors and build an arched deck truss down into the gorge.",
+    concept: "Deck trusses & arches",
+    tip: "With the structure underneath, the lower members are pushed together as the load passes — watch them glow red. The arch drives its thrust outward into the canyon walls, and the rock pushes straight back.",
+    budget: 3600,
+    constraint: { type: 'above', clearance: 0.25, label: 'SHIPPING CLEARANCE', blurb: 'Nothing above the deck' },
     anchors: [
       { x: 4, y: 6, fixed: true }, { x: 16, y: 6, fixed: true },
       { x: 4, y: 9, fixed: true }, { x: 16, y: 9, fixed: true }
@@ -901,11 +988,12 @@ const LEVELS = [
   {
     id: 3,
     title: "3. Suspension Towers",
-    goal: "Cross 16 metres of deep water with nothing underneath.",
-    desc: "The water is far too deep for piers, so the deck has to <b>hang</b>. Run cables from the high cliff anchors down to the deck joints and let tension carry the load.",
-    concept: "Tension structures",
-    tip: "Cables are hugely strong when pulled and worth nothing when pushed — a pushed cable just goes floppy. Every cable must therefore run upward from the deck to something higher.",
-    budget: 3600,
+    goal: "Cross 16 metres of water far too deep for piers.",
+    desc: "The riverbed is out of reach, so <b>nothing may be built below the deck</b> — the answer that worked in level 2 is useless here. Everything must go <b>above</b> the roadway, and the car has to drive through the middle of it.",
+    concept: "Through trusses & tension",
+    tip: "This is the level to experiment with <b>Cable</b>. It carries more load per dollar than anything else — but only in tension, and as the car rolls past, a diagonal that was being pulled starts being pushed instead. A pushed cable goes slack and carries nothing, which you will see it do. Real trusses solve this by bracing <b>both diagonals</b> of a bay, so one is always pulling.",
+    budget: 4800,
+    constraint: { type: 'below', clearance: 0.25, label: 'DEEP WATER — NO PIERS', blurb: 'Nothing below the deck' },
     anchors: [
       { x: 3, y: 7, fixed: true },   { x: 19, y: 7, fixed: true },
       { x: 3, y: 2.5, fixed: true }, { x: 19, y: 2.5, fixed: true }
@@ -916,25 +1004,25 @@ const LEVELS = [
   {
     id: 4,
     title: "4. Heavy Freight",
-    goal: "Get a 3.6 tonne freight truck across 14 metres.",
-    desc: "This load is more than double level 1. Wooden struts will buckle under it. Work out which members take the most punishment and <b>upgrade only those</b> to steel — budget is tight.",
-    concept: "Buckling",
-    tip: "A long strut in compression fails by bowing sideways long before it is crushed. Halving a strut's length makes it roughly four times harder to buckle, so subdivide long members instead of just thickening them.",
-    budget: 4200,
+    goal: "Get a 6.5 tonne freight truck across 14 metres, cheaply.",
+    desc: "No restrictions on where you build — the difficulty is the load. This truck is <b>four and a half times</b> level 1's car, and the shallow truss that carried that car will be flattened by it. An all-steel version will not fit the budget, so you have a choice to make: build <b>deeper</b>, or build <b>stronger</b>.",
+    concept: "Material selection",
+    tip: "Depth is free strength. Doubling how far your truss stands above the deck roughly halves the force in its chords, and a taller timber truss can beat a short steel one for less money. Steel is three times the price of wood — worth it in the two or three members carrying the most, wasteful everywhere else.",
+    budget: 4700,
     anchors: [
       { x: 3, y: 6.5, fixed: true }, { x: 17, y: 6.5, fixed: true },
       { x: 1, y: 9, fixed: true },   { x: 19, y: 9, fixed: true }
     ],
     terrain: { leftBank: 3, rightBank: 17, groundY: 6.5, waterY: 11.5 },
-    carMass: 3600
+    carMass: 6500
   },
   {
     id: 5,
     title: "5. Engineering Sandbox",
-    goal: "Design freely — no budget limit.",
-    desc: "An open laboratory with anchor points high, low and level. Try a Warren truss, a Pratt truss, a suspension span or a cantilever, and compare how the forces redistribute.",
+    goal: "Design freely — no budget limit, no restrictions.",
+    desc: "An open laboratory with anchor points high, low and level. Build a Warren truss, a Pratt truss, an arch, a suspension span or a cantilever, and compare how the forces redistribute through each one.",
     concept: "Free experimentation",
-    tip: "Hover any member during a test to read its exact force in newtons and how much of its capacity it is using. Try to build the cheapest bridge that never exceeds 60% on any member.",
+    tip: "Hover any member during a test to read its exact force and how much of its capacity it is using. Set yourself a challenge: the cheapest bridge that never exceeds 60% on any member.",
     budget: 99999,
     anchors: [
       { x: 3, y: 7, fixed: true },  { x: 21, y: 7, fixed: true },
@@ -1243,6 +1331,10 @@ class TrussCraftApp {
     audio.init();
     document.getElementById('modal').classList.remove('show');
     this.modalOpen = false;
+    // First time in, walk the student round the interface they otherwise miss.
+    if (this.level.tutorial && !this.tourSeen() && !this.coach && this.members.length === 0) {
+      setTimeout(() => this.startCoach(), 260);
+    }
   }
 
   showBrief() {
@@ -1268,8 +1360,34 @@ class TrussCraftApp {
             <div class="s-value">${(lvl.terrain.rightBank - lvl.terrain.leftBank).toFixed(0)} m</div>
           </div>
         </div>
-        <p style="font-size:0.8rem; color:var(--text-dim);">
-          Drag on the grid to lay members. Pick a material above, then press
+        ${lvl.constraint ? `
+          <div style="background:#2a0f0f; border-left:3px solid var(--danger); border-radius:0 8px 8px 0;
+                      padding:11px 15px; margin:14px 0; font-size:0.83rem; color:#fecaca; line-height:1.55;">
+            <b style="color:#fca5a5;">⛔ ${lvl.constraint.label}</b><br>
+            ${lvl.constraint.blurb} on this level — the hatched red area is out of bounds.
+          </div>` : ''}
+
+        <div style="margin:16px 0 6px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em;
+                    color:var(--text-dim); font-weight:700;">Your materials</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:7px;">
+          ${Object.entries(MATERIALS).map(([key, m], i) => `
+            <div style="background:#0a1120; border:1px solid var(--panel-border); border-radius:8px; padding:8px 10px;">
+              <div style="display:flex; align-items:center; gap:6px; font-size:0.78rem; font-weight:600;">
+                <span style="width:9px;height:9px;border-radius:2px;background:${m.color};flex-shrink:0;"></span>
+                ${m.name}
+                <span style="margin-left:auto; font-size:0.62rem; color:var(--text-dim);
+                             border:1px solid var(--panel-border); border-radius:3px; padding:0 4px;">${i + 1}</span>
+              </div>
+              <div style="font-size:0.66rem; color:var(--text-dim); margin-top:3px;">$${m.cost}/m</div>
+            </div>`).join('')}
+        </div>
+        <p style="font-size:0.78rem; color:var(--text-dim); margin-top:9px;">
+          Roadway is only the surface the car drives on. <b style="color:var(--text)">It cannot hold itself
+          up</b> — the other three are what carry the load.
+        </p>
+
+        <p style="font-size:0.8rem; color:var(--text-dim); margin-top:12px;">
+          Drag on the grid to lay members, then press
           <b style="color:var(--accent)">Test bridge</b> when the checklist is satisfied.
         </p>`,
       tip: lvl.tip,
@@ -1298,6 +1416,19 @@ class TrussCraftApp {
               dropped off it. The structure was too flexible: add more triangles so load is shared
               between members instead of bending a single long span.`;
     }
+    if (f.type === 'deflection') {
+      const ratio = Math.max(1, Math.round((a ? (this.level.terrain.rightBank - this.level.terrain.leftBank) : 8) / f.sag));
+      return `The <b>deck slab cracked</b>. It bent <b>${f.sag.toFixed(2)} m</b> where it is only rated to
+              ${f.limit.toFixed(2)} m — about 1 part in ${ratio} of the span, when real road bridges are held
+              to nearer 1 in 250.<br><br>
+              A flat line of roadway has <b>nothing to stop it bending</b>. All it can do is stretch into a
+              shallow curve and hang there like a rope, and roadway is not built to work that way.
+              The fix is not more roadway or stronger roadway — it is to give the load
+              <b>another path back to the anchors</b>. Add a chord of ${'<b>Wood</b>'} or ${'<b>Steel</b>'} above
+              or below the deck and tie it to each deck joint with diagonals. The triangles you make turn
+              bending into simple stretching and squashing, and the sag figure drops by a factor of ten or more.`;
+    }
+
     const mat = MATERIALS[f.mat].name.toLowerCase();
     const len = f.len.toFixed(1);
     if (f.type === 'compression') {
@@ -1326,10 +1457,14 @@ class TrussCraftApp {
     const a = this.analysis || this.analyze();
     const notes = [];
     if (!a.deckSpans && !primaryIsDeck) notes.push('The roadway did not reach all the way across — the vehicle drove off into the gap.');
+    if (a.roadOnly) notes.push('The whole structure is roadway. Roadway is the surface, not the support — it needs wood, steel or cable bracing behind it.');
     if (a.unbraced > 0) notes.push(`${a.unbraced} deck joint${a.unbraced > 1 ? 's have' : ' has'} no diagonal bracing, so the deck is acting like a plank rather than a truss.`);
     if (a.longStruts > 0) notes.push(`${a.longStruts} member${a.longStruts > 1 ? 's are' : ' is'} over 3 m long — long members in compression buckle first.`);
     if (a.woodShare > 0.85 && this.level.carMass >= 1800) notes.push('Almost the whole structure is wood. The most heavily loaded members need steel.');
-    if (!primaryIsDeck && (this.maxSag || 0) > this.sagLimit()) {
+    // Skip when the deflection failure is already the headline — the post-collapse
+    // figure is much larger than the value at the moment of cracking and reads as a contradiction.
+    const deflectionWasPrimary = this.firstFailure && this.firstFailure.type === 'deflection';
+    if (!primaryIsDeck && !deflectionWasPrimary && (this.maxSag || 0) > this.sagLimit()) {
       notes.push(`The deck deflected ${this.maxSag.toFixed(2)} m before it gave way — it was bending, not trussing.`);
     }
     return notes;
@@ -1348,7 +1483,8 @@ class TrussCraftApp {
     const peak = Math.min(100, Math.round(this.maxStressObserved * 100));
     const sag = this.maxSag || 0;
     const stiff = sag < this.sagLimit();
-    const efficient = underBudget && stiff && (cost <= budget * 0.7 || peak <= 75);
+    const thrifty = budget < 99999 && cost <= budget * EFFICIENCY_FRACTION;
+    const efficient = underBudget && (budget >= 99999 ? peak <= 60 : thrifty);
 
     const stars = success ? (1 + (underBudget ? 1 : 0) + (efficient ? 1 : 0)) : 0;
     if (success) this.saveProgress(this.level.id, stars, cost);
@@ -1362,7 +1498,7 @@ class TrussCraftApp {
           <div class="st-icon">★</div><div class="st-label">Finished under budget</div>
         </div>
         <div class="star-item ${success && efficient ? 'earned' : ''}">
-          <div class="st-icon">★</div><div class="st-label">Stiff and efficient<br>(low sag, low cost)</div>
+          <div class="st-icon">★</div><div class="st-label">${budget >= 99999 ? 'Efficient design<br>(no member over 60%)' : `Efficient design<br>(build it for under $${Math.round(budget * EFFICIENCY_FRACTION).toLocaleString()})`}</div>
         </div>
       </div>`;
 
@@ -1538,7 +1674,40 @@ class TrussCraftApp {
         </div>
 
         <div class="help-section">
-          <div class="help-h">③ Buckling: length matters</div>
+          <div class="help-h">③ Why a flat road is not a bridge</div>
+          <div class="help-p">
+            The most tempting move is to run roadway straight across and stop. It looks like a bridge, and it
+            is the cheapest thing you can build — but it has <b>no way to resist bending</b>. All a flat line
+            of deck can do is stretch slightly and hang in a shallow curve, like a rope with a car on it.
+            Roadway is not built to work that way, and the slab cracks.
+          </div>
+          <div class="help-diagram">
+            <figure>
+              <svg width="120" height="70" viewBox="0 0 120 70">
+                <path d="M10 22 Q60 62 110 22" fill="none" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>
+                <rect x="52" y="44" width="16" height="9" rx="2" fill="#ef4444"/>
+                <path d="M10 18 L10 30 M110 18 L110 30" stroke="#64748b" stroke-width="3"/>
+              </svg>
+              <figcaption>Flat deck — bends, cracks</figcaption>
+            </figure>
+            <figure>
+              <svg width="120" height="70" viewBox="0 0 120 70">
+                <path d="M10 44 L110 44 M10 44 L30 20 L50 44 L70 20 L90 44 L110 20 L110 44 M30 20 L70 20 M70 20 L110 20"
+                      fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round"/>
+                <rect x="52" y="35" width="16" height="8" rx="2" fill="#22c55e"/>
+              </svg>
+              <figcaption>Trussed — barely moves</figcaption>
+            </figure>
+          </div>
+          <div class="help-p">
+            Add a chord above or below the deck and tie it to every deck joint with diagonals, and the load stops
+            bending anything. It travels along the members as pure stretching and squashing, straight back to the
+            anchors — and the sag reading drops by a factor of ten or more.
+          </div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-h">④ Buckling: length matters</div>
           <div class="help-p">
             A long thin member in compression does not get crushed — it bows sideways and folds. The load it can
             take before buckling drops roughly with the <b>square</b> of its length, so a 4 m strut is about four
@@ -1548,20 +1717,20 @@ class TrussCraftApp {
         </div>
 
         <div class="help-section">
-          <div class="help-h">④ Deflection: passing is not the same as good</div>
+          <div class="help-h">⑤ Deflection: passing is not the same as good</div>
           <div class="help-p">
             A bridge can carry a load without a single member breaking and still be unusable, because it
             <b>bends too far</b>. Engineers set a deflection limit as a fraction of the span — real road bridges
-            are typically held to about <b>span ÷ 250</b>. TrussCraft measures how far your deck drops under the
-            vehicle and allows a much more forgiving span ÷ 60. A flat, untriangulated deck will blow straight
-            through that; the same deck with triangles added typically sags around fifteen times less for the
-            same load. Watch the <b>Deck sag</b> reading during a test — it is the quickest measure of whether
-            your structure is really working as a truss.
+            are typically held to about <b>span ÷ 250</b>. TrussCraft is far more forgiving and allows
+            <b>span ÷ 40</b> — but past that the deck slab cracks and your bridge drops into the river.
+            A flat roadway blows through that limit about three times over; the same deck with triangles
+            added sags roughly fifteen times less under the same load. Watch the <b>Deck sag</b> reading
+            during a test — it is the fastest measure of whether your structure is really working as a truss.
           </div>
         </div>
 
         <div class="help-section">
-          <div class="help-h">⑤ Material properties</div>
+          <div class="help-h">⑥ Material properties</div>
           <table class="mat-table">
             <tr><th>Material</th><th class="num">Cost/m</th><th class="num">Max tension</th><th class="num">Max compression</th></tr>
             ${matRows}
@@ -1572,7 +1741,7 @@ class TrussCraftApp {
         </div>
 
         <div class="help-section">
-          <div class="help-h">⑥ Controls</div>
+          <div class="help-h">⑦ Controls</div>
           <div class="key-list">
             <div><span>Materials</span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></div>
             <div><span>Eraser</span><kbd>E</kbd></div>
@@ -1582,8 +1751,102 @@ class TrussCraftApp {
             <div><span>This guide</span><kbd>?</kbd></div>
           </div>
         </div>`,
-      actions: [{ label: 'Back to work', cls: 'btn-primary', onclick: 'app.closeModal()' }]
+      actions: [
+        { label: '🎓 Replay the tour', onclick: 'app.closeModal(); app.startCoach();' },
+        { label: 'Back to work', cls: 'btn-primary', onclick: 'app.closeModal()' }
+      ]
     });
+  }
+
+  // ---------- first-run guided tour ----------
+  coachSteps() {
+    return [
+      {
+        sel: '#toolbar .tool-cluster:first-child',
+        title: 'You have four materials',
+        text: `<b>Roadway</b> is only the surface the car drives on — it cannot hold itself up.
+               <b>Wood</b>, <b>Steel</b> and <b>Cable</b> are what actually carry the load.
+               Press <b>1</b>–<b>4</b> to switch between them.`
+      },
+      {
+        sel: '#meter-budget',
+        title: 'Every metre costs money',
+        text: `You have a <b>budget</b>, and the cheapest bridge that survives wins.
+               Wood is $30/m, steel is $90/m — so use steel only where the forces are worst.`
+      },
+      {
+        sel: '#hud-objectives',
+        title: 'The checklist tells you what is missing',
+        text: `It updates as you build. Get every line ticked and your bridge will almost
+               certainly stand up.`
+      },
+      {
+        sel: '#btn-test',
+        title: 'Then run the load test',
+        text: `Members glow <b style="color:#38bdf8">blue</b> when stretched and
+               <b style="color:#ef4444">red</b> when squashed, and brighter as they near failure.
+               Watch which ones light up first — those are the ones doing the work.`
+      }
+    ];
+  }
+
+  startCoach() {
+    this.coach = { steps: this.coachSteps(), i: 0 };
+    document.getElementById('coach').classList.add('show');
+    this.renderCoach();
+  }
+
+  renderCoach() {
+    const c = this.coach;
+    if (!c) return;
+    const step = c.steps[c.i];
+    const target = document.querySelector(step.sel);
+    if (!target) return this.endCoach();
+
+    const r = target.getBoundingClientRect();
+    const pad = 6;
+    const hole = document.getElementById('coach-hole');
+    hole.style.top = `${r.top - pad}px`;
+    hole.style.left = `${r.left - pad}px`;
+    hole.style.width = `${r.width + pad * 2}px`;
+    hole.style.height = `${r.height + pad * 2}px`;
+
+    document.getElementById('coach-step').innerText = `Step ${c.i + 1} of ${c.steps.length}`;
+    document.getElementById('coach-title').innerText = step.title;
+    document.getElementById('coach-text').innerHTML = step.text;
+    document.getElementById('coach-next').innerText = c.i === c.steps.length - 1 ? 'Start building →' : 'Next';
+    document.getElementById('coach-dots').innerHTML =
+      c.steps.map((_, i) => `<div class="coach-dot ${i === c.i ? 'on' : ''}"></div>`).join('');
+
+    // Place the card clear of the highlight, and clamp it inside the window.
+    const card = document.getElementById('coach-card');
+    const cw = card.offsetWidth || 316;
+    const ch = card.offsetHeight || 170;
+    let top = r.bottom + 16;
+    if (top + ch > window.innerHeight - 12) top = Math.max(12, r.top - ch - 16);
+    let left = r.left + r.width / 2 - cw / 2;
+    left = clamp(left, 12, window.innerWidth - cw - 12);
+    card.style.top = `${top}px`;
+    card.style.left = `${left}px`;
+  }
+
+  nextCoach() {
+    if (!this.coach) return;
+    audio.playUI();
+    this.coach.i++;
+    if (this.coach.i >= this.coach.steps.length) return this.endCoach();
+    this.renderCoach();
+  }
+
+  endCoach() {
+    this.coach = null;
+    document.getElementById('coach').classList.remove('show');
+    try { localStorage.setItem('trusscraft.tourSeen', '1'); } catch (e) { /* storage blocked */ }
+    this.toast('coach', '🎓', 'Drag on the grid to lay your first member. Reopen this tour any time from <b>📘 Guide</b>.', 5200);
+  }
+
+  tourSeen() {
+    try { return localStorage.getItem('trusscraft.tourSeen') === '1'; } catch (e) { return false; }
   }
 
   /** Transient non-blocking message. */
@@ -1628,6 +1891,14 @@ class TrussCraftApp {
 
       if (this.activeTool === 'erase') { this.eraseAt(w.x, w.y); return; }
 
+      const existing0 = this.findNearestNode(w.x, w.y, 0.45);
+      if (!existing0 && this.zoneViolation(this.snapGrid(w.x, w.y).y)) {
+        const c = this.level.constraint;
+        this.toast('bad', '⛔', `<b>${c.label}.</b> ${c.blurb} on this level.`, 4000);
+        audio.playError();
+        return;
+      }
+
       // Capture the pre-drag state up front, whatever the drag turns out to be.
       this.pendingSnapshot = this.snapshotState();
       this.createdStartNode = null;
@@ -1668,6 +1939,17 @@ class TrussCraftApp {
       this.dragStartNode = null;
 
       const snap = this.snapGrid(this.mouseWorld.x, this.mouseWorld.y);
+
+      const violation = this.zoneViolation(snap.y);
+      if (violation) {
+        const c = this.level.constraint;
+        this.toast('bad', '⛔', `<b>${c.label}.</b> ${violation} — that is what makes this level different from the last one.`, 4600);
+        audio.playError();
+        this.commitOrRollback(false);
+        this.cleanUnconnectedNodes();
+        this.updateBudget();
+        return;
+      }
       let target = this.findNearestNode(snap.x, snap.y, 0.45);
       const dist = Math.hypot(snap.x - start.x, snap.y - start.y);
 
@@ -1730,7 +2012,8 @@ class TrussCraftApp {
         if (this.modalOpen) return;
         this.mode === 'build' ? this.startSimulation() : this.stopSimulation();
       } else if (e.key === 'Escape') {
-        if (this.modalOpen) this.closeModal();
+        if (this.coach) this.endCoach();
+        else if (this.modalOpen) this.closeModal();
       } else if (['1', '2', '3', '4'].includes(e.key)) {
         const mats = ['road', 'wood', 'steel', 'cable'];
         this.selectMaterial(mats[+e.key - 1]);
@@ -1769,6 +2052,10 @@ class TrussCraftApp {
     document.getElementById('btn-edit').addEventListener('click', () => this.stopSimulation());
     document.getElementById('btn-help').addEventListener('click', () => this.showHelp());
     document.getElementById('btn-levels').addEventListener('click', () => this.showLevels());
+
+    document.getElementById('coach-next').addEventListener('click', () => this.nextCoach());
+    document.getElementById('coach-skip').addEventListener('click', () => { audio.playUI(); this.endCoach(); });
+    window.addEventListener('resize', () => { if (this.coach) this.renderCoach(); });
 
     document.getElementById('btn-speed').addEventListener('click', () => {
       audio.init();
@@ -1870,6 +2157,28 @@ class TrussCraftApp {
   // ==========================================================
   snapGrid(x, y) {
     return { x: Math.round(x / GRID_SNAP) * GRID_SNAP, y: Math.round(y / GRID_SNAP) * GRID_SNAP };
+  }
+
+  /**
+   * Levels can forbid a half-plane above or below the deck, which is what makes
+   * each one need a different kind of bridge rather than the same truss again.
+   * Returns null when the point is legal, or a reason string when it is not.
+   */
+  zoneViolation(y) {
+    const c = this.level.constraint;
+    if (!c) return null;
+    const deck = this.level.terrain.groundY;
+    if (c.type === 'above' && y < deck - c.clearance) return c.blurb;
+    if (c.type === 'below' && y > deck + c.clearance) return c.blurb;
+    return null;
+  }
+
+  /** The y value beyond which building is forbidden, or null if unrestricted. */
+  zoneBoundaryY() {
+    const c = this.level.constraint;
+    if (!c) return null;
+    const deck = this.level.terrain.groundY;
+    return c.type === 'above' ? deck - c.clearance : deck + c.clearance;
   }
 
   createNode(x, y, fixed = false) {
@@ -2049,9 +2358,14 @@ class TrussCraftApp {
     const woodLen = this.members.filter(m => m.mat === 'wood').reduce((s, m) => s + m.restLen, 0);
     const totalLen = this.members.reduce((s, m) => s + m.restLen, 0) || 1;
 
+    const live = this.members.filter(m => !m.broken);
+    const bracing = live.filter(m => m.mat !== 'road');
     const cost = this.calculateCost();
     return {
       cost,
+      bracingCount: bracing.length,
+      bracingLength: bracing.reduce((s, m) => s + m.restLen, 0),
+      roadOnly: live.length > 0 && bracing.length === 0,
       overBudget: cost > this.level.budget,
       deckSpans, biggestGap, coveredPct: clamp(covered / gapWidth, 0, 1),
       floating, unbraced, dangling, longStruts,
@@ -2085,9 +2399,15 @@ class TrussCraftApp {
           : `${a.floating} joint${a.floating > 1 ? 's are' : ' is'} floating free of any anchor`
       },
       {
-        state: a.unbraced === 0 ? (a.deckSpans ? 'done' : '') : 'warn',
+        state: a.bracingCount > 0 ? 'done' : (a.memberCount > 0 ? 'bad' : ''),
+        text: a.bracingCount > 0
+          ? `Bracing added — ${a.bracingCount} member${a.bracingCount > 1 ? 's' : ''}`
+          : 'Brace it with a <b>second material</b> — Wood <kbd>2</kbd>, Steel <kbd>3</kbd> or Cable <kbd>4</kbd>'
+      },
+      {
+        state: a.unbraced === 0 ? (a.deckSpans && a.bracingCount > 0 ? 'done' : '') : 'warn',
         text: a.unbraced === 0
-          ? 'Deck joints are triangulated'
+          ? 'Every deck joint is triangulated'
           : `${a.unbraced} deck joint${a.unbraced > 1 ? 's need' : ' needs'} diagonal bracing`
       }
     ];
@@ -2201,6 +2521,7 @@ class TrussCraftApp {
     this.maxSag = 0;
     this.currentSag = 0;
     this.sagWarned = false;
+    this.deckCracked = false;
     this.members.forEach(m => { m.peak = 0; m.broken = false; });
     this.nodes.forEach(n => { n.restY = n.y; });
 
@@ -2386,7 +2707,13 @@ class TrussCraftApp {
     }
   }
 
-  /** Serviceable deflection limit for this level, as a fraction of the span. */
+  /**
+   * Deflection the deck can take before the slab cracks, as a fraction of span.
+   * The solver models members as pin-jointed axial links, which gives a straight
+   * line of deck members no bending stiffness at all — left alone it behaves like
+   * a hanging cable rather than a road. This limit stands in for the bending
+   * strength a real deck slab has, and is what stops a flat roadway being a bridge.
+   */
   sagLimit() {
     const t = this.level.terrain;
     return Math.max(0.12, (t.rightBank - t.leftBank) / SAG_SPAN_RATIO);
@@ -2394,22 +2721,59 @@ class TrussCraftApp {
 
   /** How far the roadway has dropped below where it was built. */
   measureSag() {
-    let sag = 0;
+    let sag = 0, worst = null;
     for (const m of this.members) {
       if (m.mat !== 'road' || m.broken) continue;
       for (const n of [m.n1, m.n2]) {
         if (n.fixed || n.restY === undefined) continue;
         const d = n.y - n.restY;
-        if (d > sag) sag = d;
+        if (d > sag) { sag = d; worst = n; }
       }
     }
     this.currentSag = sag;
     if (sag > this.maxSag) this.maxSag = sag;
 
-    if (this.maxSag > this.sagLimit() * 0.75 && !this.sagWarned) {
+    const limit = this.sagLimit();
+
+    if (this.maxSag > limit * SAG_WARN_FRACTION && !this.sagWarned) {
       this.sagWarned = true;
-      this.toast('warn', '📐', `The deck is sagging <b>${this.maxSag.toFixed(2)} m</b> (limit ${this.sagLimit().toFixed(2)} m). Nothing has snapped, but a bridge that flexes this much has still failed — add triangles to stiffen it.`, 5200);
+      this.toast('warn', '📐', `The deck is bending badly — <b>${this.maxSag.toFixed(2)} m</b> of ${limit.toFixed(2)} m. Much more and the slab will crack.`, 4600);
+      audio.playCreak();
     }
+
+    if (sag > limit && worst && !this.deckCracked) this.crackDeck(worst, sag);
+  }
+
+  /**
+   * The deck has bent further than the slab can take, so it fractures at the
+   * point of greatest deflection — the same place a real slab would fail.
+   */
+  crackDeck(node, sag) {
+    const candidates = this.members.filter(m =>
+      m.mat === 'road' && !m.broken && (m.n1 === node || m.n2 === node));
+    if (!candidates.length) return;
+
+    this.deckCracked = true;
+    if (!this.firstFailure) {
+      this.firstFailure = {
+        mat: 'road',
+        len: candidates[0].restLen,
+        type: 'deflection',
+        sag: sag,
+        limit: this.sagLimit(),
+        x: node.x, y: node.y
+      };
+      this.slowmo = 1;
+      this.toast('bad', '💥', `The deck slab <b>cracked</b> after bending ${sag.toFixed(2)} m. A flat roadway has nothing to stop it flexing.`, 5000);
+    }
+    candidates.forEach(m => {
+      m.broken = true;
+      this.brokenCount++;
+      this.emitDebris(m);
+    });
+    this.shake = Math.min(20, this.shake + 10);
+    this.flash = 0.7;
+    audio.playSnap();
   }
 
   breakMember(m, force) {
@@ -2930,6 +3294,67 @@ class TrussCraftApp {
     }
   }
 
+  /** The level's no-build zone, drawn so the rule is visible before it is broken. */
+  drawZone(ctx) {
+    const c = this.level.constraint;
+    if (!c) return;
+    const boundary = this.sy(this.zoneBoundaryY());
+    const above = c.type === 'above';
+    const top = above ? 0 : boundary;
+    const height = above ? boundary : this.viewH - boundary;
+    if (height <= 0) return;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, top, this.viewW, height);
+    ctx.clip();
+
+    // Wash, strongest at the boundary so the deck line reads clearly
+    const g = ctx.createLinearGradient(0, above ? boundary : boundary, 0, above ? boundary - 150 : boundary + 150);
+    g.addColorStop(0, 'rgba(239, 68, 68, 0.13)');
+    g.addColorStop(1, 'rgba(239, 68, 68, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, top, this.viewW, height);
+
+    // Diagonal hatching
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.13)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = -this.viewH; x < this.viewW + this.viewH; x += 16) {
+      ctx.moveTo(x, top);
+      ctx.lineTo(x + height, top + height);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Boundary line
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.75)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([9, 6]);
+    ctx.beginPath();
+    ctx.moveTo(0, boundary);
+    ctx.lineTo(this.viewW, boundary);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Label
+    ctx.font = '700 10px ui-monospace, Menlo, monospace';
+    const label = `⛔ ${c.label}`;
+    const w = ctx.measureText(label).width + 16;
+    const ly = above ? boundary - 22 : boundary + 8;
+    ctx.fillStyle = 'rgba(69, 10, 10, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(this.viewW - w - 16, ly, w, 17, 5);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#fecaca';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, this.viewW - w / 2 - 16, ly + 12);
+    ctx.textAlign = 'left';
+  }
+
   drawGrid(ctx) {
     if (this.mode === 'test') return;
     const min = this.toWorld(0, 0);
@@ -3254,7 +3679,8 @@ class TrussCraftApp {
     const len = Math.hypot(snap.x - this.dragStartNode.x, snap.y - this.dragStartNode.y);
     const tooLong = len > MAX_STRUT_LENGTH;
     const tooShort = len < MIN_STRUT_LENGTH;
-    const valid = !tooLong && !tooShort;
+    const blocked = !!this.zoneViolation(snap.y);
+    const valid = !tooLong && !tooShort && !blocked;
     const mat = MATERIALS[this.activeMat];
     const cost = Math.round(len * mat.cost);
     const wouldExceed = this.calculateCost() + cost > this.level.budget;
@@ -3282,7 +3708,8 @@ class TrussCraftApp {
     // Readout chip: length, price, and why it is refused
     const mx = (p1.x + p2.x) * 0.5;
     const my = (p1.y + p2.y) * 0.5;
-    const label = tooLong ? `${len.toFixed(1)} m — too long (max ${MAX_STRUT_LENGTH})`
+    const label = blocked ? `⛔ ${this.level.constraint.blurb}`
+                : tooLong ? `${len.toFixed(1)} m — too long (max ${MAX_STRUT_LENGTH})`
                 : tooShort ? 'too short'
                 : `${len.toFixed(1)} m · $${cost.toLocaleString()}`;
     ctx.font = `600 11px ui-monospace, Menlo, monospace`;
@@ -3544,6 +3971,7 @@ class TrussCraftApp {
     this.drawGorgeDepth(ctx);
     this.drawWater(ctx);
     this.drawCliffs(ctx);
+    this.drawZone(ctx);
     this.drawGrid(ctx);
     this.drawMembers(ctx);
     this.drawGhostStrut(ctx);

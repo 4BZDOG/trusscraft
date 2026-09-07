@@ -15,18 +15,21 @@ No install, no build step, no dependencies — one HTML file that runs offline.
 | Concept | How the game shows it |
 |---|---|
 | **Tension vs compression** | Members colour blue when stretched, red when squashed; brightness shows how close they are to failing |
-| **Triangulation** | A flat deck sags ~0.43 m under the test car; the same deck with triangles added sags ~0.025 m |
+| **Triangulation** | A flat deck bends until the slab cracks; the same deck with triangles added sags ~20x less and survives |
 | **Euler buckling** | Compression capacity falls with the square of member length, so long struts fail first |
-| **Deflection limits** | A bridge that carries the load but bends too far has still failed — the deck sag readout is checked against span ÷ 60 |
+| **Deflection limits** | Roadway has no bending strength of its own. Past a deflection of span ÷ 40 the deck slab cracks and the bridge drops the vehicle |
+| **Choosing a bridge type** | Each level forbids the previous level's answer — build below the deck, then above it, so the structural form has to change |
 | **Material economy** | Every member costs money, so the challenge is the *cheapest* structure that stands up |
 
 ## Levels
 
-1. **The Simple Span** — triangulation
-2. **The Deep Gorge** — arches and thrust
-3. **Suspension Towers** — tension structures
-4. **Heavy Freight** — buckling under a 3.6 t truck
-5. **Engineering Sandbox** — open build, no budget
+1. **The Simple Span** — triangulation. A guided tour introduces the materials and the budget.
+2. **The Deep Gorge** — ships pass overhead, so *nothing may be built above the deck*. Forces a deck truss or arch.
+3. **Suspension Towers** — the water is too deep for piers, so *nothing may be built below the deck*. Forces a through truss, and is the place to discover that a cable which goes slack carries nothing.
+4. **Heavy Freight** — a 6.5 t truck on a mean budget. All-timber is flattened, all-steel busts the budget; the student has to choose between building deeper and building stronger.
+5. **Engineering Sandbox** — open build, no budget, no restrictions.
+
+Each level is winnable in more than one way, and level 4 has at least three distinct three-star solutions.
 
 ## Controls
 
@@ -50,6 +53,11 @@ force in kilonewtons and how much of its capacity it is using.
   if storage is blocked.
 - The **design checklist** gives students continuous feedback while building, and each
   failed test explains *which* member gave way and *why*, so the debrief is the lesson.
+- A **guided tour** runs on first load pointing out the materials, the budget and the test
+  button — students otherwise tend to start drawing roadway without noticing either.
+  It can be replayed any time from **📘 Guide**.
+- A flat roadway laid straight across **cannot pass any level**. It is the first thing most
+  students try, and the resulting collapse is the hook for teaching triangulation.
 
 ## Technical notes
 
