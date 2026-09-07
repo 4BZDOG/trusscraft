@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TrussCraft: Bridge Engineering Lab</title>
+<style>
+  :root {
+    --bg: #090d16;
+    --panel-bg: #131d31;
+    --panel-border: #233350;
+    --accent: #38bdf8;
+    --accent-hover: #0ea5e9;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --road: #64748b;
+    --wood: #d97706;
+    --steel: #0284c7;
+    --cable: #a855f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Top Dashboard */
+  #header {
+    height: 48px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 10;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
+  }
+  .brand span { color: var(--text-muted); font-weight: 400; font-size: 0.85rem; }
+  .stats-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+  }
+  .stat-badge {
+    background: #090d1699;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+  }
+  .stat-badge b { color: var(--accent); }
+
+  /* Toolbar */
+  #toolbar {
+    height: 52px;
+    background: #131d31f2;
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 10;
+    gap: 8px;
+    overflow-x: auto;
+  }
+  .tool-cluster { display: flex; gap: 6px; align-items: center; }
+  .btn {
+    background: #1e293b;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .btn:hover { background: #334155; }
+  .btn.active {
+    background: #0284c7;
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary { background: var(--accent); color: #090d16; border: none; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-danger { background: #dc2626; color: #fff; border: none; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-success { background: var(--success); color: #090d16; border: none; }
+
+  .mat-btn { position: relative; padding-left: 26px; }
+  .mat-btn::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .mat-road::before { background: var(--road); }
+  .mat-wood::before { background: var(--wood); }
+  .mat-steel::before { background: var(--steel); }
+  .mat-cable::before { background: var(--cable); }
+
+  /* Viewport */
+  #viewport-container {
+    flex: 1;
+    position: relative;
+    background: #060911;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* HUD Overlays */
+  #hud-legend {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: #131d31e6;
+    border: 1px solid var(--panel-border);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-color { width: 20px; height: 6px; border-radius: 3px; }
+
+  #hud-tooltip {
+    position: absolute;
+    background: #090d16f2;
+    border: 1px solid var(--accent);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    pointer-events: none;
+    display: none;
+    transform: translate(-50%, -125%);
+    white-space: nowrap;
+    z-index: 20;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+
+  /* Educational Brief / Debrief Modal */
+  .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 9, 17, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .modal-backdrop.show { opacity: 1; pointer-events: auto; }
+  .modal-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    width: 480px;
+    max-width: 90vw;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.7);
+  }
+  .modal-title { font-size: 1.25rem; margin-bottom: 8px; color: var(--accent); }
+  .modal-body { font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; }
+  .modal-tips {
+    background: #090d16;
+    border-left: 3px solid var(--warning);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 0.82rem;
+    color: #cbd5e1;
+  }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+</style>
+</head>
+<body>
+
+  <header id="header">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M4 19L12 5L20 19M4 19H20M12 5V19M8 12H16"/>
+      </svg>
+      TrussCraft <span>| Statics Lab</span>
+    </div>
+    <div class="stats-group">
+      <div class="stat-badge">Stage: <b id="ui-level">1. The Span</b></div>
+      <div class="stat-badge">Cost: <b id="ui-budget">$0 / $1,400</b></div>
+      <div class="stat-badge">Max Stress: <b id="ui-stress">0%</b></div>
+    </div>
+  </header>
+
+  <div id="toolbar">
+    <div class="tool-cluster">
+      <button class="btn mat-btn mat-road active" data-mat="road">Road ($100)</button>
+      <button class="btn mat-btn mat-wood" data-mat="wood">Wood ($30)</button>
+      <button class="btn mat-btn mat-steel" data-mat="steel">Steel ($90)</button>
+      <button class="btn mat-btn mat-cable" data-mat="cable">Cable ($45)</button>
+      <div style="width: 1px; height: 20px; background: var(--panel-border); margin: 0 4px;"></div>
+      <button class="btn" id="btn-erase" title="Eraser Tool">🧹 Erase</button>
+      <button class="btn" id="btn-undo" title="Undo (Ctrl+Z)">↩ Undo</button>
+      <button class="btn" id="btn-redo" title="Redo (Ctrl+Y)">↪ Redo</button>
+      <button class="btn" id="btn-clear">↺ Clear</button>
+    </div>
+    <div class="tool-cluster">
+      <button class="btn" id="btn-vectors" title="Toggle Force Vectors">⇄ Vectors</button>
+      <button class="btn" id="btn-speed">⏱ 1.0x</button>
+      <button class="btn" id="btn-levels">🗺 Levels</button>
+      <button class="btn btn-primary" id="btn-test">▶ Test</button>
+      <button class="btn btn-danger" id="btn-edit" style="display:none;">⏪ Edit</button>
+    </div>
+  </div>
+
+  <div id="viewport-container">
+    <canvas id="simCanvas"></canvas>
+
+    <div id="hud-legend">
+      <div style="font-weight: 600; margin-bottom: 2px;">Force Diagram</div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #38bdf8;"></div>
+        <span>Tension (Stretching)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #ef4444;"></div>
+        <span>Compression (Buckling Risk)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #64748b;"></div>
+        <span>Neutral / Nominal Load</span>
+      </div>
+    </div>
+
+    <div id="hud-tooltip"></div>
+
+    <div class="modal-backdrop" id="modal">
+      <div class="modal-card">
+        <h3 class="modal-title" id="modal-title">Mission Brief</h3>
+        <div class="modal-body" id="modal-body">Description</div>
+        <div class="modal-actions" id="modal-actions">
+          <button class="btn btn-primary" onclick="app.closeModal()">Start Design</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/**
+ * TRUSSCRAFT: STATICS & DYNAMICS ENGINE (Single-File Architecture)
+ */
+
+// --- PROCEDURAL AUDIO ENGINE (Web Audio API) ---
+class SoundSystem {
+  constructor() {
+    this.ctx = null;
+    this.engineOsc = null;
+    this.engineGain = null;
+    this.creakCooldown = 0;
+  }
+  init() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AC();
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  }
+  playClick() {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.frequency.setValueAtTime(520, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.04);
+    g.gain.setValueAtTime(0.08, this.ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.04);
+    osc.connect(g); g.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.04);
+  }
+  playSnap() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const len = this.ctx.sampleRate * 0.12;
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.25));
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buf;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1200;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.4, now);
+    noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+    noise.start(now);
+  }
+  playCreak() {
+    if (!this.ctx || Date.now() - this.creakCooldown < 350) return;
+    this.creakCooldown = Date.now();
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.linearRampToValueAtTime(160, now + 0.15);
+    g.gain.setValueAtTime(0.06, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(g); g.connect(this.ctx.destination);
+    osc.start(now); osc.stop(now + 0.18);
+  }
+  startEngine() {
+    if (!this.ctx || this.engineOsc) return;
+    this.engineOsc = this.ctx.createOscillator();
+    this.engineGain = this.ctx.createGain();
+    this.engineOsc.type = 'triangle';
+    this.engineOsc.frequency.setValueAtTime(45, this.ctx.currentTime);
+    this.engineGain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+    this.engineOsc.connect(this.engineGain);
+    this.engineGain.connect(this.ctx.destination);
+    this.engineOsc.start();
+  }
+  updateEngine(speedRatio) {
+    if (this.engineOsc && this.ctx) {
+      const f = 45 + Math.min(60, speedRatio * 35);
+      this.engineOsc.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.05);
+    }
+  }
+  stopEngine() {
+    if (this.engineOsc) {
+      try { this.engineOsc.stop(); } catch(e){}
+      this.engineOsc = null;
+    }
+  }
+  playVictory() {
+    if (!this.ctx) return;
+    const notes = [261.6, 329.6, 392.0, 523.3, 659.3];
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = this.ctx.currentTime + idx * 0.1;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.15, t + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      osc.connect(g); g.connect(this.ctx.destination);
+      osc.start(t); osc.stop(t + 0.4);
+    });
+  }
+}
+const audio = new SoundSystem();
+
+// --- STATICS & MATERIAL CONSTANTS ---
+const MATERIALS = {
+  road:  { name: 'Roadway', cost: 100, mass: 14, maxTension: 36000, maxComp: 28000, color: '#64748b', isRoad: true },
+  wood:  { name: 'Wood',    cost: 30,  mass: 4,  maxTension: 16000, maxComp: 15000, color: '#d97706', isRoad: false },
+  steel: { name: 'Steel',   cost: 90,  mass: 18, maxTension: 70000, maxComp: 60000, color: '#38bdf8', isRoad: false },
+  cable: { name: 'Cable',   cost: 45,  mass: 2,  maxTension: 50000, maxComp: 0,     color: '#a855f7', isRoad: false, isCable: true }
+};
+
+const MAX_STRUT_LENGTH = 4.2;
+const EULER_REF_LEN = 2.4; // Reference length for buckling scaling
+
+// --- CURRICULUM LEVELS ---
+const LEVELS = [
+  {
+    id: 1,
+    title: "1. The Simple Span",
+    desc: "A small 8-meter gap. A flat road will sag and break under vehicle live-load. Use <b>triangulation</b> above or below to form a rigid truss.",
+    tip: "Triangles do not deform without member stretching or compression. Squares easily collapse!",
+    budget: 1500,
+    anchors: [
+      { x: 4, y: 7, fixed: true },
+      { x: 12, y: 7, fixed: true }
+    ],
+    terrain: { leftBank: 4, rightBank: 12, groundY: 7, waterY: 10.5 },
+    carMass: 1400
+  },
+  {
+    id: 2,
+    title: "2. The Deep Gorge",
+    desc: "A 12-meter canyon with lower wall supports. Build an arched <b>deck truss</b> below the roadway so ships can pass above.",
+    tip: "Notice the lower members turn red: they are under compression and push back against the canyon rock!",
+    budget: 2500,
+    anchors: [
+      { x: 4, y: 6, fixed: true },
+      { x: 16, y: 6, fixed: true },
+      { x: 4, y: 9, fixed: true },
+      { x: 16, y: 9, fixed: true }
+    ],
+    terrain: { leftBank: 4, rightBank: 16, groundY: 6, waterY: 11.5 },
+    carMass: 1800
+  },
+  {
+    id: 3,
+    title: "3. Suspension Towers",
+    desc: "A wide 16-meter valley. Deep water prevents lower supports. Use flexible <b>Cables</b> anchored to high cliffs to hang the bridge deck.",
+    tip: "Cables hold immense tension ($50\\text{ kN}$), but buckle with zero strength in compression.",
+    budget: 3600,
+    anchors: [
+      { x: 3, y: 7, fixed: true },
+      { x: 19, y: 7, fixed: true },
+      { x: 3, y: 2.5, fixed: true },
+      { x: 19, y: 2.5, fixed: true }
+    ],
+    terrain: { leftBank: 3, rightBank: 19, groundY: 7, waterY: 12.5 },
+    carMass: 2200
+  },
+  {
+    id: 4,
+    title: "4. Heavy Freight",
+    desc: "A 14-meter span designed for a heavy commercial freight truck. Standard wood struts will buckle under this load!",
+    tip: "Long compression struts buckle easily ($P_{crit} \\propto 1/L^2$). Use short steel members for critical chords.",
+    budget: 4200,
+    anchors: [
+      { x: 3, y: 6.5, fixed: true },
+      { x: 17, y: 6.5, fixed: true },
+      { x: 1, y: 9, fixed: true },
+      { x: 19, y: 9, fixed: true }
+    ],
+    terrain: { leftBank: 3, rightBank: 17, groundY: 6.5, waterY: 11.5 },
+    carMass: 3600
+  },
+  {
+    id: 5,
+    title: "5. Engineering Sandbox",
+    desc: "Open laboratory environment. Design experimental truss configurations, suspension bridges, or cantilever spans with an open budget.",
+    tip: "Hover over any member to inspect live stresses and tension/compression forces.",
+    budget: 99999,
+    anchors: [
+      { x: 3, y: 7, fixed: true },
+      { x: 21, y: 7, fixed: true },
+      { x: 3, y: 3, fixed: true },
+      { x: 21, y: 3, fixed: true },
+      { x: 3, y: 10, fixed: true },
+      { x: 21, y: 10, fixed: true }
+    ],
+    terrain: { leftBank: 3, rightBank: 21, groundY: 7, waterY: 13 },
+    carMass: 2000
+  }
+];
+
+// --- MAIN APPLICATION CONTROLLER ---
+class TrussCraftApp {
+  constructor() {
+    this.canvas = document.getElementById('simCanvas');
+    this.ctx = this.canvas.getContext('2d');
+
+    // Display & Coordinates
+    this.dpr = window.devicePixelRatio || 1;
+    this.PPM = 40;
+    this.originX = 60;
+    this.originY = 50;
+
+    // Simulation configuration
+    this.simSpeed = 1.0;
+    this.showVectors = false;
+    this.mode = 'build'; // 'build' | 'test'
+    this.activeMat = 'road';
+    this.activeTool = 'draw'; // 'draw' | 'erase'
+
+    // Model entities
+    this.nodes = [];
+    this.members = [];
+    this.particles = [];
+    this.vehicle = null;
+    this.currentLevelIdx = 0;
+    this.level = LEVELS[0];
+    this.maxStressObserved = 0;
+
+    // History undo/redo stacks
+    this.undoStack = [];
+    this.redoStack = [];
+
+    // Interaction state
+    this.mouseWorld = { x: 0, y: 0 };
+    this.dragStartNode = null;
+    this.hoverNode = null;
+    this.hoverMember = null;
+
+    this.initCanvas();
+    this.bindEvents();
+    this.loadLevel(0);
+
+    this.lastTime = performance.now();
+    this.loop = this.loop.bind(this);
+    requestAnimationFrame(this.loop);
+  }
+
+  initCanvas() {
+    const handleResize = () => {
+      this.dpr = window.devicePixelRatio || 1;
+      const w = this.canvas.parentElement.clientWidth;
+      const h = this.canvas.parentElement.clientHeight;
+      this.canvas.width = w * this.dpr;
+      this.canvas.height = h * this.dpr;
+      this.ctx.resetTransform();
+      this.ctx.scale(this.dpr, this.dpr);
+
+      // Fit 24 world meters horizontally
+      this.PPM = Math.min(w / 24, h / 15);
+      this.originX = Math.max(20, (w - 23 * this.PPM) / 2);
+      this.originY = h * 0.16;
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+  }
+
+  toScreen(x, y) {
+    return { x: this.originX + x * this.PPM, y: this.originY + y * this.PPM };
+  }
+  toWorld(sx, sy) {
+    return { x: (sx - this.originX) / this.PPM, y: (sy - this.originY) / this.PPM };
+  }
+
+  saveSnapshot() {
+    const snapshot = {
+      nodes: this.nodes.map(n => ({ x: n.x, y: n.y, fixed: n.fixed })),
+      members: this.members.map(m => ({
+        n1Idx: this.nodes.indexOf(m.n1),
+        n2Idx: this.nodes.indexOf(m.n2),
+        mat: m.mat
+      }))
+    };
+    this.undoStack.push(snapshot);
+    if (this.undoStack.length > 30) this.undoStack.shift();
+    this.redoStack = [];
+  }
+
+  restoreSnapshot(snapshot) {
+    this.nodes = snapshot.nodes.map(n => ({
+      x: n.x, y: n.y, oldX: n.x, oldY: n.y,
+      fixed: n.fixed, mass: n.fixed ? 0 : 5
+    }));
+    this.members = snapshot.members.map(m => {
+      const n1 = this.nodes[m.n1Idx];
+      const n2 = this.nodes[m.n2Idx];
+      return {
+        n1, n2, mat: m.mat,
+        restLen: Math.hypot(n2.x - n1.x, n2.y - n1.y),
+        broken: false, stress: 0, force: 0
+      };
+    });
+    this.updateBudget();
+  }
+
+  undo() {
+    if (this.mode === 'test' || this.undoStack.length === 0) return;
+    const current = {
+      nodes: this.nodes.map(n => ({ x: n.x, y: n.y, fixed: n.fixed })),
+      members: this.members.map(m => ({
+        n1Idx: this.nodes.indexOf(m.n1),
+        n2Idx: this.nodes.indexOf(m.n2),
+        mat: m.mat
+      }))
+    };
+    this.redoStack.push(current);
+    const prev = this.undoStack.pop();
+    this.restoreSnapshot(prev);
+    audio.playClick();
+  }
+
+  redo() {
+    if (this.mode === 'test' || this.redoStack.length === 0) return;
+    const next = this.redoStack.pop();
+    this.saveSnapshot();
+    this.restoreSnapshot(next);
+    audio.playClick();
+  }
+
+  loadLevel(idx) {
+    this.currentLevelIdx = idx;
+    this.level = LEVELS[idx];
+    this.mode = 'build';
+    this.undoStack = [];
+    this.redoStack = [];
+
+    document.getElementById('btn-test').style.display = 'inline-flex';
+    document.getElementById('btn-edit').style.display = 'none';
+    document.getElementById('ui-level').innerText = this.level.title;
+
+    this.nodes = this.level.anchors.map(a => ({
+      x: a.x, y: a.y, oldX: a.x, oldY: a.y,
+      fixed: true, mass: 0
+    }));
+    this.members = [];
+    this.vehicle = null;
+    this.particles = [];
+    this.maxStressObserved = 0;
+
+    this.updateBudget();
+    this.showModal(this.level.title, this.level.desc, this.level.tip);
+  }
+
+  showModal(title, text, tip) {
+    document.getElementById('modal-title').innerHTML = title;
+    document.getElementById('modal-body').innerHTML = `
+      <p>${text}</p>
+      ${tip ? `<div class="modal-tips">💡 <b>Engineering Guide:</b> ${tip}</div>` : ''}
+    `;
+    document.getElementById('modal-actions').innerHTML = `<button class="btn btn-primary" onclick="app.closeModal()">Begin Bridge Design</button>`;
+    document.getElementById('modal').classList.add('show');
+  }
+
+  closeModal() {
+    audio.init();
+    document.getElementById('modal').classList.remove('show');
+  }
+
+  bindEvents() {
+    const getPos = (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      return { sx: cx - rect.left, sy: cy - rect.top };
+    };
+
+    const onPointerDown = (e) => {
+      audio.init();
+      const { sx, sy } = getPos(e);
+      const w = this.toWorld(sx, sy);
+
+      if (this.mode === 'test') return;
+
+      if (this.activeTool === 'erase') {
+        this.eraseAt(w.x, w.y);
+        return;
+      }
+
+      const existing = this.findNearestNode(w.x, w.y, 0.45);
+      if (existing) {
+        this.dragStartNode = existing;
+      } else {
+        const snap = this.snapGrid(w.x, w.y);
+        const nearSnap = this.findNearestNode(snap.x, snap.y, 0.45);
+        if (!nearSnap) {
+          this.saveSnapshot();
+          this.dragStartNode = this.createNode(snap.x, snap.y, false);
+          audio.playClick();
+        } else {
+          this.dragStartNode = nearSnap;
+        }
+      }
+    };
+
+    const onPointerMove = (e) => {
+      const { sx, sy } = getPos(e);
+      this.mouseWorld = this.toWorld(sx, sy);
+
+      this.hoverNode = this.findNearestNode(this.mouseWorld.x, this.mouseWorld.y, 0.4);
+      this.hoverMember = this.findNearestMember(this.mouseWorld.x, this.mouseWorld.y, 0.25);
+      this.renderTooltip(sx, sy);
+    };
+
+    const onPointerUp = () => {
+      if (!this.dragStartNode || this.mode === 'test') {
+        this.dragStartNode = null;
+        return;
+      }
+
+      const snap = this.snapGrid(this.mouseWorld.x, this.mouseWorld.y);
+      let target = this.findNearestNode(snap.x, snap.y, 0.45);
+      const dist = Math.hypot(snap.x - this.dragStartNode.x, snap.y - this.dragStartNode.y);
+
+      if (!target && dist <= MAX_STRUT_LENGTH && dist >= 0.5) {
+        this.saveSnapshot();
+        target = this.createNode(snap.x, snap.y, false);
+      }
+
+      if (target && target !== this.dragStartNode) {
+        this.saveSnapshot();
+        this.createMember(this.dragStartNode, target, this.activeMat);
+      }
+
+      this.dragStartNode = null;
+      this.cleanUnconnectedNodes();
+      this.updateBudget();
+    };
+
+    this.canvas.addEventListener('mousedown', onPointerDown);
+    this.canvas.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    this.canvas.addEventListener('touchstart', (e) => { onPointerDown(e); e.preventDefault(); }, { passive: false });
+    this.canvas.addEventListener('touchmove', (e) => { onPointerMove(e); e.preventDefault(); }, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.shiftKey ? this.redo() : this.undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        this.redo();
+      } else if (e.key === ' ') {
+        this.mode === 'build' ? this.startSimulation() : this.stopSimulation();
+      }
+    });
+
+    // Toolbar buttons
+    document.querySelectorAll('.mat-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        audio.init();
+        document.querySelectorAll('.mat-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.activeMat = btn.dataset.mat;
+        this.activeTool = 'draw';
+        document.getElementById('btn-erase').classList.remove('active');
+      });
+    });
+
+    document.getElementById('btn-erase').addEventListener('click', () => {
+      audio.init();
+      this.activeTool = this.activeTool === 'erase' ? 'draw' : 'erase';
+      document.getElementById('btn-erase').classList.toggle('active', this.activeTool === 'erase');
+    });
+
+    document.getElementById('btn-undo').addEventListener('click', () => this.undo());
+    document.getElementById('btn-redo').addEventListener('click', () => this.redo());
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      if (this.mode === 'test') return;
+      this.saveSnapshot();
+      this.members = [];
+      this.nodes = this.nodes.filter(n => n.fixed);
+      this.updateBudget();
+      audio.playClick();
+    });
+
+    document.getElementById('btn-test').addEventListener('click', () => this.startSimulation());
+    document.getElementById('btn-edit').addEventListener('click', () => this.stopSimulation());
+
+    document.getElementById('btn-speed').addEventListener('click', (e) => {
+      audio.init();
+      this.simSpeed = this.simSpeed === 1.0 ? 0.25 : this.simSpeed === 0.25 ? 2.0 : 1.0;
+      e.target.innerText = `⏱ ${this.simSpeed.toFixed(2).replace('.00', '')}x`;
+    });
+
+    document.getElementById('btn-vectors').addEventListener('click', (e) => {
+      audio.init();
+      this.showVectors = !this.showVectors;
+      e.target.classList.toggle('active', this.showVectors);
+    });
+
+    document.getElementById('btn-levels').addEventListener('click', () => {
+      let msg = `<div style="display:flex; flex-direction:column; gap:8px;">`;
+      LEVELS.forEach((lvl, i) => {
+        msg += `<button class="btn" style="justify-content:space-between;" onclick="app.loadLevel(${i}); app.closeModal();">
+          <span>${lvl.title}</span><span style="color:var(--text-muted)">Budget: $${lvl.budget}</span>
+        </button>`;
+      });
+      msg += `</div>`;
+      this.showModal("Select Curriculum Level", msg, null);
+    });
+  }
+
+  snapGrid(x, y) {
+    const snap = 0.5;
+    return { x: Math.round(x / snap) * snap, y: Math.round(y / snap) * snap };
+  }
+
+  createNode(x, y, fixed = false) {
+    const node = { x, y, oldX: x, oldY: y, fixed, mass: fixed ? 0 : 5 };
+    this.nodes.push(node);
+    return node;
+  }
+
+  createMember(n1, n2, mat) {
+    const len = Math.hypot(n2.x - n1.x, n2.y - n1.y);
+    if (len > MAX_STRUT_LENGTH) return;
+    const exists = this.members.some(m => (m.n1 === n1 && m.n2 === n2) || (m.n1 === n2 && m.n2 === n1));
+    if (exists) return;
+
+    this.members.push({
+      n1, n2, mat,
+      restLen: len,
+      broken: false,
+      stress: 0,
+      force: 0
+    });
+    audio.playClick();
+  }
+
+  eraseAt(x, y) {
+    const m = this.findNearestMember(x, y, 0.35);
+    if (m) {
+      this.saveSnapshot();
+      this.members = this.members.filter(item => item !== m);
+      this.cleanUnconnectedNodes();
+      this.updateBudget();
+      audio.playClick();
+      return;
+    }
+    const n = this.findNearestNode(x, y, 0.4);
+    if (n && !n.fixed) {
+      this.saveSnapshot();
+      this.members = this.members.filter(item => item.n1 !== n && item.n2 !== n);
+      this.nodes = this.nodes.filter(item => item !== n);
+      this.updateBudget();
+      audio.playClick();
+    }
+  }
+
+  cleanUnconnectedNodes() {
+    this.nodes = this.nodes.filter(n => n.fixed || this.members.some(m => m.n1 === n || m.n2 === n));
+  }
+
+  findNearestNode(x, y, maxDist) {
+    let target = null, minDist = maxDist;
+    for (const n of this.nodes) {
+      const d = Math.hypot(n.x - x, n.y - y);
+      if (d < minDist) { minDist = d; target = n; }
+    }
+    return target;
+  }
+
+  findNearestMember(x, y, maxDist) {
+    let target = null, minDist = maxDist;
+    for (const m of this.members) {
+      if (m.broken) continue;
+      const d = this.pointDistToSegment(x, y, m.n1.x, m.n1.y, m.n2.x, m.n2.y);
+      if (d < minDist) { minDist = d; target = m; }
+    }
+    return target;
+  }
+
+  pointDistToSegment(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const l2 = dx * dx + dy * dy;
+    if (l2 === 0) return Math.hypot(px - x1, py - y1);
+    let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
+  calculateCost() {
+    return Math.round(this.members.reduce((sum, m) => sum + m.restLen * MATERIALS[m.mat].cost, 0));
+  }
+
+  updateBudget() {
+    const cost = this.calculateCost();
+    const el = document.getElementById('ui-budget');
+    el.innerText = `$${cost.toLocaleString()} / $${this.level.budget.toLocaleString()}`;
+    el.style.color = cost > this.level.budget ? 'var(--danger)' : 'var(--accent)';
+
+    // Distribute dead loads
+    this.nodes.forEach(n => n.mass = n.fixed ? 0 : 5);
+    this.members.forEach(m => {
+      const halfMass = (m.restLen * MATERIALS[m.mat].mass) * 0.5;
+      if (!m.n1.fixed) m.n1.mass += halfMass;
+      if (!m.n2.fixed) m.n2.mass += halfMass;
+    });
+  }
+
+  renderTooltip(sx, sy) {
+    const tip = document.getElementById('hud-tooltip');
+    if (this.hoverMember && !this.hoverMember.broken) {
+      const m = this.hoverMember;
+      const mat = MATERIALS[m.mat];
+      const isComp = m.force < 0;
+      const pct = Math.round(m.stress * 100);
+
+      tip.style.display = 'block';
+      tip.style.left = `${sx}px`;
+      tip.style.top = `${sy}px`;
+      tip.innerHTML = `
+        <b>${mat.name} Chord</b> (${m.restLen.toFixed(1)}m)<br>
+        Force: <span style="color:${isComp ? '#ef4444' : '#38bdf8'}">${Math.abs(Math.round(m.force))} N [${isComp ? 'Compression' : 'Tension'}]</span><br>
+        Load Capacity: <b>${pct}%</b>
+      `;
+    } else {
+      tip.style.display = 'none';
+    }
+  }
+
+  // --- RUNTIME SIMULATION (TEST PHASE) ---
+  startSimulation() {
+    audio.init();
+    const hasRoad = this.members.some(m => m.mat === 'road');
+    if (!hasRoad) {
+      alert("A bridge must contain Roadway segments for vehicles to cross!");
+      return;
+    }
+
+    this.saveSnapshot();
+    this.mode = 'test';
+    this.maxStressObserved = 0;
+    document.getElementById('btn-test').style.display = 'none';
+    document.getElementById('btn-edit').style.display = 'inline-flex';
+
+    // Spawn 2-wheel vehicle
+    this.vehicle = {
+      x: this.level.terrain.leftBank - 1.2,
+      y: this.level.terrain.groundY - 0.45,
+      vx: 2.2,
+      vy: 0,
+      width: 1.6,
+      wheelRadius: 0.28,
+      mass: this.level.carMass,
+      crashed: false,
+      escaped: false
+    };
+
+    audio.startEngine();
+  }
+
+  stopSimulation() {
+    audio.init();
+    audio.stopEngine();
+    this.mode = 'build';
+    document.getElementById('btn-test').style.display = 'inline-flex';
+    document.getElementById('btn-edit').style.display = 'none';
+
+    if (this.undoStack.length > 0) {
+      const current = this.undoStack[this.undoStack.length - 1];
+      this.restoreSnapshot(current);
+    }
+    this.vehicle = null;
+    this.particles = [];
+    document.getElementById('ui-stress').innerText = '0%';
+    document.getElementById('ui-stress').style.color = 'var(--text)';
+  }
+
+  stepPhysics(dt) {
+    if (this.mode !== 'test') return;
+
+    const subSteps = 16;
+    const subDt = (dt * this.simSpeed) / subSteps;
+    const g = 9.81;
+
+    for (let step = 0; step < subSteps; step++) {
+      // 1. Verlet integration for nodes
+      for (const n of this.nodes) {
+        if (n.fixed) continue;
+        const vx = (n.x - n.oldX) * 0.9992;
+        const vy = (n.y - n.oldY) * 0.9992;
+        n.oldX = n.x;
+        n.oldY = n.y;
+        n.x += vx;
+        n.y += vy + g * subDt * subDt;
+      }
+
+      // 2. Position-Based Dynamics (PBD) Constraint Relaxation & Euler Buckling
+      let peakStress = 0;
+      for (const m of this.members) {
+        if (m.broken) continue;
+        const dx = m.n2.x - m.n1.x;
+        const dy = m.n2.y - m.n1.y;
+        const dist = Math.hypot(dx, dy);
+        const delta = dist - m.restLen;
+        const mat = MATERIALS[m.mat];
+
+        // Cable buckling under compression
+        if (mat.isCable && delta < 0) {
+          m.stress = 0;
+          m.force = 0;
+          continue;
+        }
+
+        const stiffness = 0.88;
+        const diff = (delta / (dist || 0.001)) * stiffness;
+        const invM1 = m.n1.fixed ? 0 : 1 / (m.n1.mass || 1);
+        const invM2 = m.n2.fixed ? 0 : 1 / (m.n2.mass || 1);
+        const sumInv = invM1 + invM2;
+
+        if (sumInv > 0) {
+          const shift = diff / sumInv;
+          if (!m.n1.fixed) { m.n1.x += dx * shift * invM1; m.n1.y += dy * shift * invM1; }
+          if (!m.n2.fixed) { m.n2.x -= dx * shift * invM2; m.n2.y -= dy * shift * invM2; }
+        }
+
+        // Axial internal forces
+        const elasticModulus = 200000;
+        const strain = delta / m.restLen;
+        const force = strain * elasticModulus;
+        m.force = force;
+
+        // Statics Capacity & Euler Buckling Limit
+        let capacityRatio = 0;
+        if (force >= 0) {
+          capacityRatio = force / mat.maxTension;
+        } else {
+          // Euler buckling penalty for long compression struts: P_crit proportional to 1 / L^2
+          const lengthFactor = Math.min(1.0, Math.pow(EULER_REF_LEN / m.restLen, 1.8));
+          const effectiveMaxComp = mat.maxComp * lengthFactor;
+          capacityRatio = Math.abs(force) / (effectiveMaxComp || 1);
+        }
+
+        m.stress = capacityRatio;
+        if (capacityRatio > peakStress) peakStress = capacityRatio;
+
+        if (capacityRatio > 0.82) audio.playCreak();
+
+        // Failure threshold
+        if (capacityRatio >= 1.0) {
+          m.broken = true;
+          audio.playSnap();
+          this.emitDebris(m);
+        }
+      }
+
+      // 3. Dynamic Wheel-Road Interaction
+      if (this.vehicle && !this.vehicle.crashed) {
+        const v = this.vehicle;
+        v.x += v.vx * subDt;
+        v.vy += g * subDt;
+        v.y += v.vy * subDt;
+
+        const wheelXPositions = [v.x - v.width * 0.4, v.x + v.width * 0.4];
+        let groundedCount = 0;
+
+        wheelXPositions.forEach(wx => {
+          const wy = v.y + 0.35;
+
+          // Abutment contact
+          if ((wx <= this.level.terrain.leftBank || wx >= this.level.terrain.rightBank) && wy >= this.level.terrain.groundY) {
+            v.y = this.level.terrain.groundY - 0.35;
+            v.vy = 0;
+            groundedCount++;
+            return;
+          }
+
+          // Road member contact
+          for (const m of this.members) {
+            if (m.broken || m.mat !== 'road') continue;
+            const xMin = Math.min(m.n1.x, m.n2.x) - 0.1;
+            const xMax = Math.max(m.n1.x, m.n2.x) + 0.1;
+
+            if (wx >= xMin && wx <= xMax) {
+              const segLenX = m.n2.x - m.n1.x;
+              const t = segLenX !== 0 ? (wx - m.n1.x) / segLenX : 0.5;
+              if (t >= 0 && t <= 1) {
+                const surfaceY = m.n1.y + t * (m.n2.y - m.n1.y);
+                const penetration = wy - surfaceY;
+
+                if (penetration >= -0.35 && penetration <= 0.4) {
+                  v.y = surfaceY - 0.35;
+                  v.vy = 0;
+                  groundedCount++;
+
+                  // Dynamic wheel load transfer to deck joints
+                  const wheelWeight = (v.mass * g) / 2;
+                  const impulse = (wheelWeight * subDt) / subSteps;
+                  if (!m.n1.fixed) m.n1.y += (1 - t) * impulse * 0.003;
+                  if (!m.n2.fixed) m.n2.y += t * impulse * 0.003;
+                }
+              }
+            }
+          }
+        });
+
+        // Failure: vehicle fall into chasm
+        if (v.y > this.level.terrain.waterY + 0.5) {
+          v.crashed = true;
+          audio.stopEngine();
+          this.showModal(
+            "Structural Collapse!",
+            "Your bridge members buckled under dynamic live loading. Observe where stress turned red and add supporting triangulation.",
+            "Long members buckle under compression. Subdivide long struts into shorter triangles!"
+          );
+        }
+
+        // Success: crossed to the right bank
+        if (v.x > this.level.terrain.rightBank + 1.2 && !v.escaped) {
+          v.escaped = true;
+          audio.stopEngine();
+          audio.playVictory();
+          const cost = this.calculateCost();
+          const under = cost <= this.level.budget;
+          this.showModal(
+            "Bridge Certified!",
+            `Vehicle safely completed crossing.<br>Project Cost: <b>$${cost.toLocaleString()}</b> ${under ? '(Under Budget ★★★)' : '(Over Budget ★★☆)'}`,
+            "Ready for the next structural engineering challenge?"
+          );
+        }
+
+        audio.updateEngine(groundedCount > 0 ? 1 : 0.2);
+      }
+
+      this.maxStressObserved = Math.max(this.maxStressObserved, peakStress);
+    }
+
+    const stressPct = Math.min(100, Math.round(this.maxStressObserved * 100));
+    const stressEl = document.getElementById('ui-stress');
+    stressEl.innerText = `${stressPct}%`;
+    stressEl.style.color = stressPct > 90 ? 'var(--danger)' : stressPct > 70 ? 'var(--warning)' : 'var(--success)';
+  }
+
+  emitDebris(member) {
+    const mx = (member.n1.x + member.n2.x) * 0.5;
+    const my = (member.n1.y + member.n2.y) * 0.5;
+    for (let i = 0; i < 10; i++) {
+      this.particles.push({
+        x: mx, y: my,
+        vx: (Math.random() - 0.5) * 5,
+        vy: (Math.random() - 0.8) * 5,
+        color: MATERIALS[member.mat].color,
+        life: 1.0
+      });
+    }
+  }
+
+  // --- RENDERING PIPELINE ---
+  render() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.canvas.width / this.dpr, this.canvas.height / this.dpr);
+
+    this.drawLandscape(ctx);
+    this.drawGrid(ctx);
+    this.drawMembers(ctx);
+    this.drawGhostStrut(ctx);
+    this.drawNodes(ctx);
+    this.drawVehicle(ctx);
+    this.drawParticles(ctx);
+  }
+
+  drawLandscape(ctx) {
+    const t = this.level.terrain;
+    const w = this.canvas.width / this.dpr;
+    const h = this.canvas.height / this.dpr;
+
+    const leftSc = this.toScreen(t.leftBank, t.groundY);
+    const rightSc = this.toScreen(t.rightBank, t.groundY);
+    const waterSc = this.toScreen(0, t.waterY);
+
+    // Water reservoir
+    ctx.fillStyle = '#0284c733';
+    ctx.fillRect(0, waterSc.y, w, h - waterSc.y);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(0, waterSc.y, w, 2);
+
+    // Bedrock cliffs
+    ctx.fillStyle = '#131d31';
+    // Left Cliff
+    ctx.beginPath();
+    ctx.moveTo(0, leftSc.y);
+    ctx.lineTo(leftSc.x, leftSc.y);
+    ctx.lineTo(leftSc.x - 24, h);
+    ctx.lineTo(0, h);
+    ctx.fill();
+
+    // Right Cliff
+    ctx.beginPath();
+    ctx.moveTo(w, rightSc.y);
+    ctx.lineTo(rightSc.x, rightSc.y);
+    ctx.lineTo(rightSc.x + 24, h);
+    ctx.lineTo(w, h);
+    ctx.fill();
+
+    ctx.strokeStyle = '#233350';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  drawGrid(ctx) {
+    if (this.mode === 'test') return;
+    ctx.fillStyle = '#23335066';
+    const min = this.toWorld(0, 0);
+    const max = this.toWorld(this.canvas.width / this.dpr, this.canvas.height / this.dpr);
+
+    for (let x = Math.floor(min.x); x <= Math.ceil(max.x); x += 0.5) {
+      for (let y = Math.floor(min.y); y <= Math.ceil(max.y); y += 0.5) {
+        const sc = this.toScreen(x, y);
+        ctx.fillRect(sc.x - 1, sc.y - 1, 2, 2);
+      }
+    }
+  }
+
+  drawMembers(ctx) {
+    for (const m of this.members) {
+      if (m.broken) continue;
+      const p1 = this.toScreen(m.n1.x, m.n1.y);
+      const p2 = this.toScreen(m.n2.x, m.n2.y);
+      const mat = MATERIALS[m.mat];
+
+      ctx.beginPath();
+
+      // Slack cable visualization
+      if (mat.isCable && m.force <= 0 && this.mode === 'test') {
+        const midX = (p1.x + p2.x) * 0.5;
+        const midY = (p1.y + p2.y) * 0.5 + 8; // Droop
+        ctx.moveTo(p1.x, p1.y);
+        ctx.quadraticCurveTo(midX, midY, p2.x, p2.y);
+        ctx.strokeStyle = '#64748b88';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        continue;
+      }
+
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+
+      if (this.mode === 'test') {
+        const s = Math.min(1.0, m.stress);
+        if (m.force < -50) {
+          // Compression: Red spectrum
+          ctx.strokeStyle = `rgb(${Math.floor(220 + 35 * s)}, ${Math.floor(90 * (1 - s))}, ${Math.floor(90 * (1 - s))})`;
+        } else if (m.force > 50) {
+          // Tension: Blue spectrum
+          ctx.strokeStyle = `rgb(${Math.floor(50 * (1 - s))}, ${Math.floor(180 * (1 - s) + 40)}, ${Math.floor(220 + 35 * s)})`;
+        } else {
+          ctx.strokeStyle = '#64748b';
+        }
+        ctx.lineWidth = m.mat === 'road' ? 7 : m.mat === 'steel' ? 5 : 3.5;
+      } else {
+        ctx.strokeStyle = mat.color;
+        ctx.lineWidth = m.mat === 'road' ? 6 : m.mat === 'steel' ? 4.5 : m.mat === 'cable' ? 2 : 3.5;
+      }
+
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Road dash overlay
+      if (m.mat === 'road') {
+        ctx.strokeStyle = '#090d16';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Force Vector Overlay
+      if (this.showVectors && this.mode === 'test' && Math.abs(m.force) > 80) {
+        this.drawVectorArrows(ctx, p1, p2, m.force);
+      }
+    }
+  }
+
+  drawVectorArrows(ctx, p1, p2, force) {
+    const mx = (p1.x + p2.x) * 0.5;
+    const my = (p1.y + p2.y) * 0.5;
+    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const len = 10;
+
+    ctx.save();
+    ctx.translate(mx, my);
+    ctx.rotate(angle);
+    ctx.strokeStyle = force > 0 ? '#38bdf8' : '#ef4444';
+    ctx.lineWidth = 2;
+
+    if (force > 0) {
+      // Inward pull (Tension)
+      ctx.beginPath();
+      ctx.moveTo(-len, -3); ctx.lineTo(-len + 4, 0); ctx.lineTo(-len, 3);
+      ctx.moveTo(len, -3);  ctx.lineTo(len - 4, 0);  ctx.lineTo(len, 3);
+      ctx.stroke();
+    } else {
+      // Outward push (Compression)
+      ctx.beginPath();
+      ctx.moveTo(-len + 4, -3); ctx.lineTo(-len, 0); ctx.lineTo(-len + 4, 3);
+      ctx.moveTo(len - 4, -3);  ctx.lineTo(len, 0);  ctx.lineTo(len - 4, 3);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  drawGhostStrut(ctx) {
+    if (!this.dragStartNode || this.mode === 'test') return;
+    const snap = this.snapGrid(this.mouseWorld.x, this.mouseWorld.y);
+    const p1 = this.toScreen(this.dragStartNode.x, this.dragStartNode.y);
+    const p2 = this.toScreen(snap.x, snap.y);
+    const len = Math.hypot(snap.x - this.dragStartNode.x, snap.y - this.dragStartNode.y);
+    const valid = len <= MAX_STRUT_LENGTH && len >= 0.5;
+
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.strokeStyle = valid ? MATERIALS[this.activeMat].color : 'var(--danger)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([5, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Length readout tag
+    const mx = (p1.x + p2.x) * 0.5;
+    const my = (p1.y + p2.y) * 0.5;
+    ctx.fillStyle = valid ? '#131d31' : '#dc2626';
+    ctx.fillRect(mx - 24, my - 10, 48, 20);
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${len.toFixed(1)}m`, mx, my + 4);
+  }
+
+  drawNodes(ctx) {
+    for (const n of this.nodes) {
+      const sc = this.toScreen(n.x, n.y);
+      ctx.beginPath();
+      ctx.arc(sc.x, sc.y, n.fixed ? 6.5 : 4.5, 0, Math.PI * 2);
+
+      if (n.fixed) {
+        ctx.fillStyle = '#eab308';
+        ctx.strokeStyle = '#713f12';
+        ctx.lineWidth = 2.5;
+      } else {
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#090d16';
+        ctx.lineWidth = 2;
+      }
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  drawVehicle(ctx) {
+    if (!this.vehicle) return;
+    const v = this.vehicle;
+    const sc = this.toScreen(v.x, v.y);
+    const w = v.width * this.PPM;
+    const r = v.wheelRadius * this.PPM;
+
+    ctx.save();
+    ctx.translate(sc.x, sc.y);
+
+    // Body
+    ctx.fillStyle = v.crashed ? '#ef4444' : '#38bdf8';
+    ctx.fillRect(-w * 0.5, -r * 2.2, w, r * 2.2);
+
+    // Windows
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(w * 0.05, -r * 2.0, w * 0.38, r * 1.3);
+
+    // Wheels
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(-w * 0.35, 0, r, 0, Math.PI * 2);
+    ctx.arc(w * 0.35, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  drawParticles(ctx) {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx * 0.02;
+      p.y += p.vy * 0.02;
+      p.life -= 0.02;
+
+      if (p.life <= 0) {
+        this.particles.splice(i, 1);
+        continue;
+      }
+
+      const sc = this.toScreen(p.x, p.y);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.life;
+      ctx.fillRect(sc.x - 2, sc.y - 2, 4, 4);
+    }
+    ctx.globalAlpha = 1.0;
+  }
+
+  loop(timestamp) {
+    const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+    this.lastTime = timestamp;
+
+    this.stepPhysics(dt);
+    this.render();
+
+    requestAnimationFrame(this.loop);
+  }
+}
+
+// Launch application
+const app = new TrussCraftApp();
+</script>
+</body>
+</html>
