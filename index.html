@@ -6,23 +6,28 @@
 <title>TrussCraft: Bridge Engineering Lab</title>
 <style>
   :root {
-    --bg: #090d16;
-    --panel-bg: #131d31;
-    --panel-border: #233350;
+    --bg: #070b13;
+    --panel-bg: #111a2c;
+    --panel-2: #17233b;
+    --panel-border: #24334f;
     --accent: #38bdf8;
     --accent-hover: #0ea5e9;
     --text: #f8fafc;
     --text-muted: #94a3b8;
+    --text-dim: #64748b;
     --danger: #ef4444;
     --success: #22c55e;
     --warning: #f59e0b;
-    --road: #64748b;
+    --road: #94a3b8;
     --wood: #d97706;
-    --steel: #0284c7;
+    --steel: #38bdf8;
     --cable: #a855f7;
+    --tension: #38bdf8;
+    --compression: #ef4444;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+
   body {
     background: var(--bg);
     color: var(--text);
@@ -33,15 +38,17 @@
     flex-direction: column;
   }
 
-  /* Top Dashboard */
+  /* ============ TOP DASHBOARD ============ */
   #header {
-    height: 48px;
-    background: var(--panel-bg);
+    height: 52px;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #16223a 0%, var(--panel-bg) 100%);
     border-bottom: 1px solid var(--panel-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
+    padding: 0 14px;
+    gap: 14px;
     z-index: 10;
   }
   .brand {
@@ -49,367 +56,844 @@
     align-items: center;
     gap: 8px;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     color: var(--accent);
+    white-space: nowrap;
   }
-  .brand span { color: var(--text-muted); font-weight: 400; font-size: 0.85rem; }
-  .stats-group {
+  .brand svg { filter: drop-shadow(0 0 6px #38bdf866); }
+  .brand span { color: var(--text-dim); font-weight: 400; font-size: 0.8rem; }
+
+  #level-pill {
+    background: #0b1220;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 0.85rem;
+    gap: 8px;
   }
-  .stat-badge {
-    background: #090d1699;
-    padding: 4px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--panel-border);
-  }
-  .stat-badge b { color: var(--accent); }
+  #level-pill .lvl-stars { color: var(--warning); letter-spacing: 1px; font-size: 0.75rem; }
 
-  /* Toolbar */
+  .meters { display: flex; gap: 14px; align-items: center; margin-left: auto; }
+  .meter { min-width: 158px; }
+  .meter-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 3px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .meter-label b { font-size: 0.86rem; color: var(--text); font-variant-numeric: tabular-nums; }
+  .meter-track {
+    height: 6px;
+    background: #0b1220;
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid #1e293b;
+    position: relative;
+  }
+  .meter-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: var(--accent);
+    transition: width 0.25s ease, background 0.25s ease;
+  }
+  .meter-fill.warn { background: var(--warning); }
+  .meter-fill.bad  { background: var(--danger); }
+  .meter-fill.good { background: var(--success); }
+  #ui-stress-bar { background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444); }
+  /* stress bar uses a clipping mask so the gradient stays absolute */
+  #meter-stress .meter-track::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 0;
+    width: var(--danger-zone, 0%);
+    pointer-events: none;
+  }
+
+  /* ============ TOOLBAR ============ */
   #toolbar {
-    height: 52px;
-    background: #131d31f2;
-    backdrop-filter: blur(8px);
+    height: 58px;
+    flex-shrink: 0;
+    background: #101a2ef2;
+    backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--panel-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
+    padding: 0 14px;
     z-index: 10;
-    gap: 8px;
+    gap: 10px;
     overflow-x: auto;
+    overflow-y: hidden;
   }
-  .tool-cluster { display: flex; gap: 6px; align-items: center; }
+  #toolbar::-webkit-scrollbar { height: 0; }
+  .tool-cluster { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+  .divider { width: 1px; height: 26px; background: var(--panel-border); margin: 0 4px; flex-shrink: 0; }
+
   .btn {
-    background: #1e293b;
+    background: #1c2942;
     color: var(--text);
     border: 1px solid var(--panel-border);
-    padding: 6px 12px;
-    border-radius: 6px;
+    padding: 7px 12px;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
     font-size: 0.8rem;
+    font-family: inherit;
     display: flex;
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-    transition: all 0.15s ease;
+    transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .btn:hover { background: #334155; }
+  .btn:hover:not(:disabled) { background: #29395a; border-color: #3b4d73; }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.35; cursor: default; }
   .btn.active {
-    background: #0284c7;
+    background: #0369a1;
     border-color: var(--accent);
     color: #fff;
+    box-shadow: 0 0 0 1px #38bdf855, 0 0 12px #38bdf833;
   }
-  .btn-primary { background: var(--accent); color: #090d16; border: none; }
-  .btn-primary:hover { background: var(--accent-hover); }
-  .btn-danger { background: #dc2626; color: #fff; border: none; }
-  .btn-danger:hover { background: #b91c1c; }
-  .btn-success { background: var(--success); color: #090d16; border: none; }
+  .btn kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.62rem;
+    background: #0b1220aa;
+    border: 1px solid #ffffff1a;
+    border-radius: 4px;
+    padding: 1px 4px;
+    color: var(--text-dim);
+  }
+  .btn.active kbd { color: #dbeafe; }
 
-  .mat-btn { position: relative; padding-left: 26px; }
+  .btn-primary { background: linear-gradient(180deg, #38bdf8, #0ea5e9); color: #06121f; border-color: #7dd3fc; }
+  .btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, #7dd3fc, #38bdf8); border-color: #bae6fd; }
+  .btn-danger { background: linear-gradient(180deg, #ef4444, #dc2626); color: #fff; border-color: #f87171; }
+  .btn-danger:hover:not(:disabled) { background: linear-gradient(180deg, #f87171, #ef4444); }
+  .btn-ghost { background: transparent; }
+
+  /* Material buttons */
+  .mat-btn {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 5px 12px 5px 28px;
+    position: relative;
+    line-height: 1.25;
+  }
   .mat-btn::before {
     content: '';
     position: absolute;
     left: 10px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    box-shadow: 0 0 8px currentColor;
   }
-  .mat-road::before { background: var(--road); }
-  .mat-wood::before { background: var(--wood); }
-  .mat-steel::before { background: var(--steel); }
-  .mat-cable::before { background: var(--cable); }
+  .mat-btn small { font-size: 0.65rem; color: var(--text-dim); font-weight: 500; }
+  .mat-btn.active small { color: #bfdbfe; }
+  .mat-road::before  { background: var(--road);  color: var(--road); }
+  .mat-wood::before  { background: var(--wood);  color: var(--wood); }
+  .mat-steel::before { background: var(--steel); color: var(--steel); }
+  .mat-cable::before { background: var(--cable); color: var(--cable); }
 
-  /* Viewport */
+  @keyframes nudge {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-4px); }
+    40%,80% { transform: translateX(4px); }
+  }
+  .nudge { animation: nudge 0.4s ease; }
+
+  /* ============ VIEWPORT ============ */
   #viewport-container {
     flex: 1;
     position: relative;
     background: #060911;
+    overflow: hidden;
   }
-  canvas { display: block; width: 100%; height: 100%; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
 
-  /* HUD Overlays */
-  #hud-legend {
+  /* ============ HUD CARDS ============ */
+  .hud-card {
     position: absolute;
-    bottom: 16px;
-    left: 16px;
-    background: #131d31e6;
+    background: #0f1829e6;
+    backdrop-filter: blur(10px);
     border: 1px solid var(--panel-border);
-    padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px #00000066;
     font-size: 0.75rem;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+    z-index: 5;
   }
-  .legend-item { display: flex; align-items: center; gap: 8px; }
-  .legend-color { width: 20px; height: 6px; border-radius: 3px; }
+  .hud-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    font-weight: 700;
+    margin-bottom: 7px;
+  }
 
+  /* Objectives checklist */
+  #hud-objectives {
+    top: 14px;
+    left: 14px;
+    padding: 10px 13px;
+    width: 232px;
+  }
+  .obj-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 3px 0;
+    color: var(--text-muted);
+    line-height: 1.35;
+  }
+  .obj-item .tick {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1.5px solid #33415a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.62rem;
+    font-weight: 700;
+    margin-top: 1px;
+    color: transparent;
+    transition: all 0.2s ease;
+  }
+  .obj-item.done .tick { background: var(--success); border-color: var(--success); color: #052e16; }
+  .obj-item.done { color: #cbd5e1; }
+  .obj-item.warn .tick { border-color: var(--warning); color: var(--warning); background: #f59e0b22; }
+  .obj-item.warn { color: #fcd34d; }
+  .obj-item.bad .tick { border-color: var(--danger); color: var(--danger); background: #ef444422; }
+  .obj-item.bad { color: #fca5a5; }
+
+  /* Legend */
+  #hud-legend {
+    bottom: 14px;
+    left: 14px;
+    padding: 10px 13px;
+    pointer-events: none;
+    width: 210px;
+  }
+  .legend-ramp {
+    height: 9px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #2f6f9e, #38bdf8 22%, #7c8598 50%, #f87171 78%, #ef4444);
+    margin-bottom: 4px;
+    border: 1px solid #ffffff14;
+  }
+  .legend-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: var(--text-muted); }
+  .legend-swatch { width: 18px; height: 5px; border-radius: 3px; flex-shrink: 0; }
+
+  /* Live analysis */
+  #hud-analysis {
+    bottom: 14px;
+    right: 14px;
+    padding: 10px 13px;
+    width: 234px;
+    display: none;
+  }
+  #hud-analysis.show { display: block; }
+  .an-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    color: var(--text-muted);
+    gap: 8px;
+  }
+  .an-row b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .an-bar-track {
+    height: 5px;
+    background: #0b1220;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 5px 0 8px;
+    border: 1px solid #1e293b;
+  }
+  .an-bar-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; border-radius: 999px; }
+  .worst-list { margin-top: 8px; border-top: 1px solid var(--panel-border); padding-top: 7px; }
+  .worst-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 0.7rem; }
+  .worst-dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+  .worst-name { flex: 1; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .worst-pct { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+  /* Tooltip */
   #hud-tooltip {
     position: absolute;
-    background: #090d16f2;
-    border: 1px solid var(--accent);
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.75rem;
+    background: #060b14f7;
+    border: 1px solid #38bdf866;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 0.73rem;
     pointer-events: none;
     display: none;
-    transform: translate(-50%, -125%);
+    transform: translate(-50%, calc(-100% - 14px));
     white-space: nowrap;
     z-index: 20;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    box-shadow: 0 8px 24px #000000aa;
+    line-height: 1.5;
   }
+  #hud-tooltip .tt-head { font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+  #hud-tooltip .tt-swatch { width: 9px; height: 9px; border-radius: 2px; }
+  #hud-tooltip .tt-row { color: var(--text-muted); }
+  #hud-tooltip .tt-row span { color: var(--text); font-variant-numeric: tabular-nums; }
+  .tt-bar { height: 5px; background: #0b1220; border-radius: 999px; overflow: hidden; margin-top: 5px; width: 150px; }
+  .tt-bar div { height: 100%; border-radius: 999px; }
 
-  /* Educational Brief / Debrief Modal */
+  /* ============ TOASTS ============ */
+  #toasts {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    z-index: 40;
+    pointer-events: none;
+    width: max-content;
+    max-width: 76%;
+  }
+  .toast {
+    background: #0f1829f2;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    border-left: 3px solid var(--accent);
+    border-radius: 9px;
+    padding: 9px 15px;
+    font-size: 0.79rem;
+    box-shadow: 0 8px 26px #00000088;
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    line-height: 1.4;
+    animation: toastIn 0.28s cubic-bezier(0.2, 1.2, 0.4, 1);
+    max-width: 100%;
+  }
+  .toast.out { animation: toastOut 0.25s ease forwards; }
+  .toast .t-icon { font-size: 0.95rem; line-height: 1.2; flex-shrink: 0; }
+  .toast .t-text b { color: #fff; }
+  .toast.info    { border-left-color: var(--accent); }
+  .toast.good    { border-left-color: var(--success); }
+  .toast.warn    { border-left-color: var(--warning); }
+  .toast.bad     { border-left-color: var(--danger); }
+  .toast.coach   { border-left-color: #a855f7; }
+  @keyframes toastIn  { from { opacity: 0; transform: translateY(-14px) scale(0.96); } to { opacity: 1; transform: none; } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(-10px) scale(0.97); } }
+
+  /* ============ MODALS ============ */
   .modal-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(6, 9, 17, 0.85);
+    background: rgba(4, 7, 14, 0.82);
+    backdrop-filter: blur(3px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 50;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.22s ease;
+    padding: 20px;
   }
   .modal-backdrop.show { opacity: 1; pointer-events: auto; }
   .modal-card {
-    background: var(--panel-bg);
+    background: linear-gradient(180deg, #17223a, var(--panel-bg));
     border: 1px solid var(--panel-border);
-    width: 480px;
-    max-width: 90vw;
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.7);
+    width: 560px;
+    max-width: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    border-radius: 14px;
+    padding: 24px 26px;
+    box-shadow: 0 24px 60px #000000cc, inset 0 1px 0 #ffffff0f;
+    transform: translateY(12px) scale(0.98);
+    transition: transform 0.24s cubic-bezier(0.2, 1, 0.4, 1);
   }
-  .modal-title { font-size: 1.25rem; margin-bottom: 8px; color: var(--accent); }
-  .modal-body { font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; }
+  .modal-backdrop.show .modal-card { transform: none; }
+  .modal-eyebrow {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .modal-title { font-size: 1.35rem; margin-bottom: 10px; color: var(--text); line-height: 1.25; }
+  .modal-title.win  { color: var(--success); }
+  .modal-title.lose { color: var(--danger); }
+  .modal-body { font-size: 0.87rem; color: var(--text-muted); line-height: 1.62; margin-bottom: 18px; }
+  .modal-body b, .modal-body strong { color: var(--text); }
   .modal-tips {
-    background: #090d16;
+    background: #0a1120;
     border-left: 3px solid var(--warning);
-    padding: 10px 14px;
-    margin: 12px 0;
+    border-radius: 0 8px 8px 0;
+    padding: 11px 15px;
+    margin: 14px 0;
     font-size: 0.82rem;
     color: #cbd5e1;
+    line-height: 1.6;
   }
-  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .modal-tips b { color: var(--warning); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .modal-actions .btn { padding: 9px 16px; font-size: 0.84rem; }
+
+  /* Stat grid for debrief */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 9px;
+    margin: 16px 0;
+  }
+  .stat-box {
+    background: #0a1120;
+    border: 1px solid var(--panel-border);
+    border-radius: 9px;
+    padding: 10px 12px;
+  }
+  .stat-box .s-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    font-weight: 700;
+  }
+  .stat-box .s-value { font-size: 1.08rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* Stars */
+  .stars-row { display: flex; gap: 10px; margin: 4px 0 16px; }
+  .star-item { flex: 1; text-align: center; background: #0a1120; border: 1px solid var(--panel-border); border-radius: 9px; padding: 11px 8px; }
+  .star-item .st-icon { font-size: 1.5rem; line-height: 1; filter: grayscale(1) brightness(0.5); transition: filter 0.3s ease; }
+  .star-item.earned .st-icon { filter: none; text-shadow: 0 0 14px #f59e0b88; }
+  .star-item .st-label { font-size: 0.65rem; color: var(--text-dim); margin-top: 6px; line-height: 1.3; }
+  .star-item.earned .st-label { color: #cbd5e1; }
+
+  /* Level select cards */
+  .level-list { display: flex; flex-direction: column; gap: 8px; }
+  .level-card {
+    background: #0a1120;
+    border: 1px solid var(--panel-border);
+    border-radius: 9px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    font-family: inherit;
+    transition: all 0.15s ease;
+    width: 100%;
+  }
+  .level-card:hover { background: #131f36; border-color: #3b4d73; transform: translateX(3px); }
+  .level-card.current { border-color: var(--accent); box-shadow: 0 0 0 1px #38bdf844; }
+  .lc-num {
+    width: 30px; height: 30px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background: #1c2942;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem;
+    color: var(--accent);
+  }
+  .lc-main { flex: 1; min-width: 0; }
+  .lc-title { font-weight: 600; font-size: 0.86rem; }
+  .lc-sub { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
+  .lc-stars { color: var(--warning); font-size: 0.8rem; letter-spacing: 1px; flex-shrink: 0; }
+
+  /* Help modal */
+  .help-section { margin-bottom: 18px; }
+  .help-h {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .help-p { font-size: 0.81rem; color: var(--text-muted); line-height: 1.6; }
+  .help-diagram { display: flex; gap: 14px; margin: 10px 0; }
+  .help-diagram figure { flex: 1; text-align: center; background: #0a1120; border: 1px solid var(--panel-border); border-radius: 8px; padding: 10px; }
+  .help-diagram figcaption { font-size: 0.68rem; color: var(--text-dim); margin-top: 5px; }
+  .mat-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 8px; }
+  .mat-table th {
+    text-align: left;
+    color: var(--text-dim);
+    font-size: 0.63rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 5px 7px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .mat-table td { padding: 6px 7px; border-bottom: 1px solid #1b263f; color: var(--text-muted); }
+  .mat-table td:first-child { color: var(--text); font-weight: 600; }
+  .mat-table .num { font-variant-numeric: tabular-nums; text-align: right; }
+  .key-list { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; font-size: 0.76rem; color: var(--text-muted); }
+  .key-list div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .key-list kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.68rem;
+    background: #0a1120;
+    border: 1px solid var(--panel-border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: var(--text);
+  }
+
+  /* Narrow screens: keep the readouts, drop the decoration. */
+  @media (max-width: 900px) {
+    .meters { gap: 10px; }
+    .meter { min-width: 0; }
+    .meter-track { display: none; }
+    .meter-label { flex-direction: row; align-items: baseline; gap: 5px; margin-bottom: 0; }
+    #hud-objectives { width: 190px; font-size: 0.7rem; }
+    #hud-legend { display: none; }
+  }
+  @media (max-width: 700px) {
+    #level-pill { display: none; }
+    .brand span { display: none; }
+    .mat-btn small { display: none; }
+    .btn kbd { display: none; }
+    .mat-btn { flex-direction: row; padding: 7px 10px 7px 26px; }
+    #btn-test .btn-long, #btn-edit .btn-long { display: none; }
+    #hud-analysis { width: 178px; font-size: 0.7rem; }
+    #hud-objectives { width: 168px; }
+  }
 </style>
 </head>
 <body>
 
   <header id="header">
     <div class="brand">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 19L12 5L20 19M4 19H20M12 5V19M8 12H16"/>
       </svg>
       TrussCraft <span>| Statics Lab</span>
     </div>
-    <div class="stats-group">
-      <div class="stat-badge">Stage: <b id="ui-level">1. The Span</b></div>
-      <div class="stat-badge">Cost: <b id="ui-budget">$0 / $1,400</b></div>
-      <div class="stat-badge">Max Stress: <b id="ui-stress">0%</b></div>
+
+    <div id="level-pill">
+      <span id="ui-level">1. The Simple Span</span>
+      <span class="lvl-stars" id="ui-level-stars">☆☆☆</span>
+    </div>
+
+    <div class="meters">
+      <div class="meter" id="meter-budget">
+        <div class="meter-label">
+          <span>Project cost</span>
+          <b id="ui-budget">$0</b>
+        </div>
+        <div class="meter-track"><div class="meter-fill" id="ui-budget-bar"></div></div>
+      </div>
+      <div class="meter" id="meter-stress">
+        <div class="meter-label">
+          <span>Peak stress</span>
+          <b id="ui-stress">0%</b>
+        </div>
+        <div class="meter-track"><div class="meter-fill" id="ui-stress-bar"></div></div>
+      </div>
     </div>
   </header>
 
   <div id="toolbar">
     <div class="tool-cluster">
-      <button class="btn mat-btn mat-road active" data-mat="road">Road ($100)</button>
-      <button class="btn mat-btn mat-wood" data-mat="wood">Wood ($30)</button>
-      <button class="btn mat-btn mat-steel" data-mat="steel">Steel ($90)</button>
-      <button class="btn mat-btn mat-cable" data-mat="cable">Cable ($45)</button>
-      <div style="width: 1px; height: 20px; background: var(--panel-border); margin: 0 4px;"></div>
-      <button class="btn" id="btn-erase" title="Eraser Tool">🧹 Erase</button>
-      <button class="btn" id="btn-undo" title="Undo (Ctrl+Z)">↩ Undo</button>
-      <button class="btn" id="btn-redo" title="Redo (Ctrl+Y)">↪ Redo</button>
-      <button class="btn" id="btn-clear">↺ Clear</button>
+      <button class="btn mat-btn mat-road active" data-mat="road" data-key="1">
+        <span>Roadway <kbd>1</kbd></span><small>$100/m · heavy deck</small>
+      </button>
+      <button class="btn mat-btn mat-wood" data-mat="wood" data-key="2">
+        <span>Wood <kbd>2</kbd></span><small>$30/m · cheap, weak</small>
+      </button>
+      <button class="btn mat-btn mat-steel" data-mat="steel" data-key="3">
+        <span>Steel <kbd>3</kbd></span><small>$90/m · strong</small>
+      </button>
+      <button class="btn mat-btn mat-cable" data-mat="cable" data-key="4">
+        <span>Cable <kbd>4</kbd></span><small>$45/m · tension only</small>
+      </button>
+      <div class="divider"></div>
+      <button class="btn" id="btn-erase" title="Eraser — click a member or joint to remove it">🧹 Erase <kbd>E</kbd></button>
+      <button class="btn" id="btn-undo" title="Undo">↩ Undo</button>
+      <button class="btn" id="btn-redo" title="Redo">↪ Redo</button>
+      <button class="btn" id="btn-clear" title="Remove every member">↺ Clear</button>
     </div>
+
     <div class="tool-cluster">
-      <button class="btn" id="btn-vectors" title="Toggle Force Vectors">⇄ Vectors</button>
-      <button class="btn" id="btn-speed">⏱ 1.0x</button>
-      <button class="btn" id="btn-levels">🗺 Levels</button>
-      <button class="btn btn-primary" id="btn-test">▶ Test</button>
-      <button class="btn btn-danger" id="btn-edit" style="display:none;">⏪ Edit</button>
+      <button class="btn" id="btn-vectors" title="Show force direction arrows on each member">⇄ Vectors <kbd>V</kbd></button>
+      <button class="btn" id="btn-speed" title="Simulation speed">⏱ <span id="speed-label">1x</span></button>
+      <button class="btn" id="btn-help" title="Engineering handbook">📘 Guide <kbd>?</kbd></button>
+      <button class="btn" id="btn-levels" title="Choose a challenge">🗺 Levels</button>
+      <button class="btn btn-primary" id="btn-test" title="Run the load test">▶ Test<span class="btn-long">&nbsp;bridge</span> <kbd>Space</kbd></button>
+      <button class="btn btn-danger" id="btn-edit" style="display:none;">⏪ Edit<span class="btn-long">&nbsp;design</span></button>
     </div>
   </div>
 
   <div id="viewport-container">
     <canvas id="simCanvas"></canvas>
 
-    <div id="hud-legend">
-      <div style="font-weight: 600; margin-bottom: 2px;">Force Diagram</div>
-      <div class="legend-item">
-        <div class="legend-color" style="background: #38bdf8;"></div>
-        <span>Tension (Stretching)</span>
+    <div class="hud-card" id="hud-objectives">
+      <div class="hud-title">Design checklist</div>
+      <div id="obj-list"></div>
+    </div>
+
+    <div class="hud-card" id="hud-legend">
+      <div class="hud-title">Force diagram</div>
+      <div class="legend-ramp"></div>
+      <div class="legend-scale">
+        <span>Tension</span><span>Idle</span><span>Compression</span>
       </div>
       <div class="legend-item">
-        <div class="legend-color" style="background: #ef4444;"></div>
-        <span>Compression (Buckling Risk)</span>
+        <div class="legend-swatch" style="background:#38bdf8;"></div>
+        <span>Pulling apart — stretching</span>
       </div>
       <div class="legend-item">
-        <div class="legend-color" style="background: #64748b;"></div>
-        <span>Neutral / Nominal Load</span>
+        <div class="legend-swatch" style="background:#ef4444;"></div>
+        <span>Pushing together — buckling</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:#7c8598;"></div>
+        <span>Carrying almost nothing</span>
+      </div>
+      <div class="legend-item" style="margin-top:4px; color:#64748b; font-size:0.68rem;">
+        Brightness = how close to failure
       </div>
     </div>
 
+    <div class="hud-card" id="hud-analysis">
+      <div class="hud-title">Live load test</div>
+      <div class="an-row"><span>Crossing progress</span><b id="an-progress">0%</b></div>
+      <div class="an-bar-track"><div class="an-bar-fill" id="an-progress-bar"></div></div>
+      <div class="an-row"><span>Deck sag</span><b id="an-sag">0.00 m</b></div>
+      <div class="an-row"><span>Members at risk</span><b id="an-risk">0</b></div>
+      <div class="an-row"><span>Members failed</span><b id="an-broken">0</b></div>
+      <div class="worst-list" id="an-worst"></div>
+    </div>
+
     <div id="hud-tooltip"></div>
+    <div id="toasts"></div>
 
     <div class="modal-backdrop" id="modal">
       <div class="modal-card">
-        <h3 class="modal-title" id="modal-title">Mission Brief</h3>
-        <div class="modal-body" id="modal-body">Description</div>
-        <div class="modal-actions" id="modal-actions">
-          <button class="btn btn-primary" onclick="app.closeModal()">Start Design</button>
-        </div>
+        <div class="modal-eyebrow" id="modal-eyebrow">Mission brief</div>
+        <h3 class="modal-title" id="modal-title">Bridge brief</h3>
+        <div class="modal-body" id="modal-body"></div>
+        <div class="modal-actions" id="modal-actions"></div>
       </div>
     </div>
   </div>
 
 <script>
 /**
- * TRUSSCRAFT: STATICS & DYNAMICS ENGINE (Single-File Architecture)
+ * TRUSSCRAFT — STATICS & DYNAMICS ENGINE
+ * Single-file architecture: audio, physics, analysis and rendering.
  */
 
-// --- PROCEDURAL AUDIO ENGINE (Web Audio API) ---
+// ============================================================
+//  PROCEDURAL AUDIO ENGINE (Web Audio API)
+// ============================================================
 class SoundSystem {
   constructor() {
     this.ctx = null;
+    this.master = null;
     this.engineOsc = null;
     this.engineGain = null;
     this.creakCooldown = 0;
+    this.enabled = true;
   }
+
   init() {
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
       this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.9;
+      this.master.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
   }
-  playClick() {
-    if (!this.ctx) return;
+
+  get out() { return this.master || (this.ctx && this.ctx.destination); }
+
+  tone(freq, dur, type = 'sine', vol = 0.1, slideTo = null, delay = 0) {
+    if (!this.ctx || !this.enabled) return;
+    const t = this.ctx.currentTime + delay;
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
-    osc.frequency.setValueAtTime(520, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.04);
-    g.gain.setValueAtTime(0.08, this.ctx.currentTime);
-    g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.04);
-    osc.connect(g); g.connect(this.ctx.destination);
-    osc.start(); osc.stop(this.ctx.currentTime + 0.04);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + Math.min(0.015, dur * 0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(this.out);
+    osc.start(t); osc.stop(t + dur + 0.02);
   }
-  playSnap() {
-    if (!this.ctx) return;
-    const now = this.ctx.currentTime;
-    const len = this.ctx.sampleRate * 0.12;
+
+  noise(dur, filterType, freq, vol, delay = 0, q = 1) {
+    if (!this.ctx || !this.enabled) return;
+    const t = this.ctx.currentTime + delay;
+    const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
     const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.25));
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = buf;
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.3));
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
     const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 1200;
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.4, now);
-    noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
-    noise.start(now);
-  }
-  playCreak() {
-    if (!this.ctx || Date.now() - this.creakCooldown < 350) return;
-    this.creakCooldown = Date.now();
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
+    filter.type = filterType;
+    filter.frequency.value = freq;
+    filter.Q.value = q;
     const g = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(80, now);
-    osc.frequency.linearRampToValueAtTime(160, now + 0.15);
-    g.gain.setValueAtTime(0.06, now);
-    g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-    osc.connect(g); g.connect(this.ctx.destination);
-    osc.start(now); osc.stop(now + 0.18);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(filter); filter.connect(g); g.connect(this.out);
+    src.start(t);
   }
+
+  playClick()  { this.tone(520, 0.05, 'square', 0.05, 120); }
+  playPlace()  { this.tone(340, 0.07, 'triangle', 0.09, 620); }
+  playErase()  { this.tone(300, 0.08, 'sawtooth', 0.05, 90); }
+  playUI()     { this.tone(700, 0.04, 'sine', 0.05, 900); }
+  playError()  { this.tone(180, 0.12, 'square', 0.07, 110); this.tone(120, 0.16, 'square', 0.05, 80, 0.05); }
+  playThud()   { this.tone(70, 0.14, 'sine', 0.12, 42); this.noise(0.07, 'lowpass', 300, 0.12); }
+  playSplash() { this.noise(0.45, 'lowpass', 900, 0.3); this.tone(340, 0.3, 'sine', 0.05, 90); }
+
+  playSnap() {
+    this.noise(0.18, 'bandpass', 1400, 0.42, 0, 1.4);
+    this.tone(220, 0.22, 'sawtooth', 0.1, 55);
+  }
+
+  playCreak() {
+    if (!this.ctx || Date.now() - this.creakCooldown < 320) return;
+    this.creakCooldown = Date.now();
+    this.tone(78 + Math.random() * 30, 0.22, 'sawtooth', 0.055, 170);
+  }
+
   startEngine() {
-    if (!this.ctx || this.engineOsc) return;
+    if (!this.ctx || this.engineOsc || !this.enabled) return;
     this.engineOsc = this.ctx.createOscillator();
     this.engineGain = this.ctx.createGain();
     this.engineOsc.type = 'triangle';
     this.engineOsc.frequency.setValueAtTime(45, this.ctx.currentTime);
-    this.engineGain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+    this.engineGain.gain.setValueAtTime(0.045, this.ctx.currentTime);
     this.engineOsc.connect(this.engineGain);
-    this.engineGain.connect(this.ctx.destination);
+    this.engineGain.connect(this.out);
     this.engineOsc.start();
   }
+
   updateEngine(speedRatio) {
     if (this.engineOsc && this.ctx) {
       const f = 45 + Math.min(60, speedRatio * 35);
-      this.engineOsc.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.05);
+      this.engineOsc.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.06);
     }
   }
+
   stopEngine() {
     if (this.engineOsc) {
-      try { this.engineOsc.stop(); } catch(e){}
+      try {
+        this.engineGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
+        this.engineOsc.stop(this.ctx.currentTime + 0.3);
+      } catch (e) { /* already stopped */ }
       this.engineOsc = null;
     }
   }
+
   playVictory() {
-    if (!this.ctx) return;
     const notes = [261.6, 329.6, 392.0, 523.3, 659.3];
-    notes.forEach((freq, idx) => {
-      const osc = this.ctx.createOscillator();
-      const g = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      const t = this.ctx.currentTime + idx * 0.1;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.15, t + 0.04);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-      osc.connect(g); g.connect(this.ctx.destination);
-      osc.start(t); osc.stop(t + 0.4);
-    });
+    notes.forEach((f, i) => this.tone(f, 0.4, 'sine', 0.13, null, i * 0.1));
+  }
+
+  playFailure() {
+    const notes = [392.0, 329.6, 261.6, 196.0];
+    notes.forEach((f, i) => this.tone(f, 0.45, 'triangle', 0.11, null, i * 0.14));
   }
 }
 const audio = new SoundSystem();
 
-// --- STATICS & MATERIAL CONSTANTS ---
+// ============================================================
+//  MATERIALS & STATICS CONSTANTS
+// ============================================================
 const MATERIALS = {
-  road:  { name: 'Roadway', cost: 100, mass: 14, maxTension: 36000, maxComp: 28000, color: '#64748b', isRoad: true },
-  wood:  { name: 'Wood',    cost: 30,  mass: 4,  maxTension: 16000, maxComp: 15000, color: '#d97706', isRoad: false },
-  steel: { name: 'Steel',   cost: 90,  mass: 18, maxTension: 70000, maxComp: 60000, color: '#38bdf8', isRoad: false },
-  cable: { name: 'Cable',   cost: 45,  mass: 2,  maxTension: 50000, maxComp: 0,     color: '#a855f7', isRoad: false, isCable: true }
+  road: {
+    name: 'Roadway', short: 'Deck', cost: 100, mass: 14,
+    maxTension: 36000, maxComp: 28000, color: '#94a3b8', isRoad: true,
+    blurb: 'The driving surface. Vehicles can only travel on roadway, so it must span the whole gap. Heavy, so support it well.'
+  },
+  wood: {
+    name: 'Wood', short: 'Timber', cost: 30, mass: 4,
+    maxTension: 16000, maxComp: 15000, color: '#d97706',
+    blurb: 'Cheap and light, but weak. Fine for short bracing; long wooden struts buckle under compression.'
+  },
+  steel: {
+    name: 'Steel', short: 'Steel', cost: 90, mass: 18,
+    maxTension: 70000, maxComp: 60000, color: '#38bdf8',
+    blurb: 'Four times stronger than wood in both directions, and three times the price. Save it for the members carrying the most load.'
+  },
+  cable: {
+    name: 'Cable', short: 'Cable', cost: 45, mass: 2,
+    maxTension: 50000, maxComp: 0, color: '#a855f7', isCable: true,
+    blurb: 'Enormously strong in tension, and completely useless in compression — it just goes slack. Use it to hang loads from above.'
+  }
 };
 
-const MAX_STRUT_LENGTH = 4.2;
-const EULER_REF_LEN = 2.4; // Reference length for buckling scaling
+const MAX_STRUT_LENGTH = 4.2;   // metres
+const MIN_STRUT_LENGTH = 0.5;   // metres
+const EULER_REF_LEN    = 2.4;   // reference length for buckling scaling
+const GRID_SNAP        = 0.5;   // metres
+const ELASTIC_MODULUS  = 200000;
+const RISK_THRESHOLD   = 0.75;  // stress fraction that counts as "at risk"
+const SAG_SPAN_RATIO   = 60;    // serviceable deflection limit = span / this
 
-// --- CURRICULUM LEVELS ---
+// ============================================================
+//  CURRICULUM LEVELS
+// ============================================================
 const LEVELS = [
   {
     id: 1,
     title: "1. The Simple Span",
-    desc: "A small 8-meter gap. A flat road will sag and break under vehicle live-load. Use <b>triangulation</b> above or below to form a rigid truss.",
-    tip: "Triangles do not deform without member stretching or compression. Squares easily collapse!",
+    goal: "Carry a 1.4 tonne car across an 8 metre gap.",
+    desc: "Lay a flat roadway straight across and it will hold — but watch it <b>sag</b> as the car rolls over it. A deck that flexes that much has failed even without snapping. Add <b>triangles</b> above or below it to turn a bending plank into a rigid truss, and watch the sag reading collapse.",
+    concept: "Triangulation",
+    tip: "A square frame folds over flat without any member changing length. A triangle can't — to change its shape, something has to physically stretch or crush. That is why every truss is built from triangles.",
     budget: 1500,
-    anchors: [
-      { x: 4, y: 7, fixed: true },
-      { x: 12, y: 7, fixed: true }
-    ],
+    anchors: [ { x: 4, y: 7, fixed: true }, { x: 12, y: 7, fixed: true } ],
     terrain: { leftBank: 4, rightBank: 12, groundY: 7, waterY: 10.5 },
     carMass: 1400
   },
   {
     id: 2,
     title: "2. The Deep Gorge",
-    desc: "A 12-meter canyon with lower wall supports. Build an arched <b>deck truss</b> below the roadway so ships can pass above.",
-    tip: "Notice the lower members turn red: they are under compression and push back against the canyon rock!",
+    goal: "Span a 12 metre canyon with the structure below the deck.",
+    desc: "Ships need clear air above the roadway, so everything must sit <b>underneath</b> it. Build an arched deck truss down into the gorge and anchor it to the lower wall bolts.",
+    concept: "Arches & thrust",
+    tip: "Watch the lower members glow red as the car crosses. They are in compression: the arch is pushing outward against the canyon walls, and the rock pushes straight back.",
     budget: 2500,
     anchors: [
-      { x: 4, y: 6, fixed: true },
-      { x: 16, y: 6, fixed: true },
-      { x: 4, y: 9, fixed: true },
-      { x: 16, y: 9, fixed: true }
+      { x: 4, y: 6, fixed: true }, { x: 16, y: 6, fixed: true },
+      { x: 4, y: 9, fixed: true }, { x: 16, y: 9, fixed: true }
     ],
     terrain: { leftBank: 4, rightBank: 16, groundY: 6, waterY: 11.5 },
     carMass: 1800
@@ -417,14 +901,14 @@ const LEVELS = [
   {
     id: 3,
     title: "3. Suspension Towers",
-    desc: "A wide 16-meter valley. Deep water prevents lower supports. Use flexible <b>Cables</b> anchored to high cliffs to hang the bridge deck.",
-    tip: "Cables hold immense tension ($50\\text{ kN}$), but buckle with zero strength in compression.",
+    goal: "Cross 16 metres of deep water with nothing underneath.",
+    desc: "The water is far too deep for piers, so the deck has to <b>hang</b>. Run cables from the high cliff anchors down to the deck joints and let tension carry the load.",
+    concept: "Tension structures",
+    tip: "Cables are hugely strong when pulled and worth nothing when pushed — a pushed cable just goes floppy. Every cable must therefore run upward from the deck to something higher.",
     budget: 3600,
     anchors: [
-      { x: 3, y: 7, fixed: true },
-      { x: 19, y: 7, fixed: true },
-      { x: 3, y: 2.5, fixed: true },
-      { x: 19, y: 2.5, fixed: true }
+      { x: 3, y: 7, fixed: true },   { x: 19, y: 7, fixed: true },
+      { x: 3, y: 2.5, fixed: true }, { x: 19, y: 2.5, fixed: true }
     ],
     terrain: { leftBank: 3, rightBank: 19, groundY: 7, waterY: 12.5 },
     carMass: 2200
@@ -432,14 +916,14 @@ const LEVELS = [
   {
     id: 4,
     title: "4. Heavy Freight",
-    desc: "A 14-meter span designed for a heavy commercial freight truck. Standard wood struts will buckle under this load!",
-    tip: "Long compression struts buckle easily ($P_{crit} \\propto 1/L^2$). Use short steel members for critical chords.",
+    goal: "Get a 3.6 tonne freight truck across 14 metres.",
+    desc: "This load is more than double level 1. Wooden struts will buckle under it. Work out which members take the most punishment and <b>upgrade only those</b> to steel — budget is tight.",
+    concept: "Buckling",
+    tip: "A long strut in compression fails by bowing sideways long before it is crushed. Halving a strut's length makes it roughly four times harder to buckle, so subdivide long members instead of just thickening them.",
     budget: 4200,
     anchors: [
-      { x: 3, y: 6.5, fixed: true },
-      { x: 17, y: 6.5, fixed: true },
-      { x: 1, y: 9, fixed: true },
-      { x: 19, y: 9, fixed: true }
+      { x: 3, y: 6.5, fixed: true }, { x: 17, y: 6.5, fixed: true },
+      { x: 1, y: 9, fixed: true },   { x: 19, y: 9, fixed: true }
     ],
     terrain: { leftBank: 3, rightBank: 17, groundY: 6.5, waterY: 11.5 },
     carMass: 3600
@@ -447,29 +931,77 @@ const LEVELS = [
   {
     id: 5,
     title: "5. Engineering Sandbox",
-    desc: "Open laboratory environment. Design experimental truss configurations, suspension bridges, or cantilever spans with an open budget.",
-    tip: "Hover over any member to inspect live stresses and tension/compression forces.",
+    goal: "Design freely — no budget limit.",
+    desc: "An open laboratory with anchor points high, low and level. Try a Warren truss, a Pratt truss, a suspension span or a cantilever, and compare how the forces redistribute.",
+    concept: "Free experimentation",
+    tip: "Hover any member during a test to read its exact force in newtons and how much of its capacity it is using. Try to build the cheapest bridge that never exceeds 60% on any member.",
     budget: 99999,
     anchors: [
-      { x: 3, y: 7, fixed: true },
-      { x: 21, y: 7, fixed: true },
-      { x: 3, y: 3, fixed: true },
-      { x: 21, y: 3, fixed: true },
-      { x: 3, y: 10, fixed: true },
-      { x: 21, y: 10, fixed: true }
+      { x: 3, y: 7, fixed: true },  { x: 21, y: 7, fixed: true },
+      { x: 3, y: 3, fixed: true },  { x: 21, y: 3, fixed: true },
+      { x: 3, y: 10, fixed: true }, { x: 21, y: 10, fixed: true }
     ],
     terrain: { leftBank: 3, rightBank: 21, groundY: 7, waterY: 13 },
     carMass: 2000
   }
 ];
 
-// --- MAIN APPLICATION CONTROLLER ---
+// Older Safari lacks roundRect — supply a minimal equivalent.
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    const radii = Array.isArray(r) ? r : [r, r, r, r];
+    const [tl, tr, br, bl] = radii.length === 4 ? radii : [radii[0], radii[0], radii[0], radii[0]];
+    this.moveTo(x + tl, y);
+    this.lineTo(x + w - tr, y);
+    this.quadraticCurveTo(x + w, y, x + w, y + tr);
+    this.lineTo(x + w, y + h - br);
+    this.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+    this.lineTo(x + bl, y + h);
+    this.quadraticCurveTo(x, y + h, x, y + h - bl);
+    this.lineTo(x, y + tl);
+    this.quadraticCurveTo(x, y, x + tl, y);
+    return this;
+  };
+}
+
+// ============================================================
+//  SMALL UTILITIES
+// ============================================================
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp  = (a, b, t) => a + (b - a) * t;
+
+/** Deterministic pseudo-random in [0,1) — keeps terrain from shimmering. */
+function hash1(n) {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+/** Smooth deterministic 1-D value noise. */
+function noise1(x) {
+  const i = Math.floor(x), f = x - i;
+  const u = f * f * (3 - 2 * f);
+  return lerp(hash1(i), hash1(i + 1), u);
+}
+
+/** Colour for a member's force state: hue by sign, vividness by utilisation. */
+function stressColor(force, stress, alpha = 1) {
+  const s = clamp(stress, 0, 1);
+  if (Math.abs(force) < 60) return `rgba(124, 133, 152, ${alpha})`;
+  const hue = force < 0 ? 4 : 199;
+  const sat = Math.round(lerp(22, 92, Math.pow(s, 0.6)));
+  const lig = Math.round(lerp(58, 55, s));
+  return `hsla(${hue}, ${sat}%, ${lig}%, ${alpha})`;
+}
+
+// ============================================================
+//  MAIN APPLICATION CONTROLLER
+// ============================================================
 class TrussCraftApp {
   constructor() {
     this.canvas = document.getElementById('simCanvas');
     this.ctx = this.canvas.getContext('2d');
 
-    // Display & Coordinates
+    // Display & coordinates
     this.dpr = window.devicePixelRatio || 1;
     this.PPM = 40;
     this.originX = 60;
@@ -478,9 +1010,9 @@ class TrussCraftApp {
     // Simulation configuration
     this.simSpeed = 1.0;
     this.showVectors = false;
-    this.mode = 'build'; // 'build' | 'test'
+    this.mode = 'build';            // 'build' | 'test'
     this.activeMat = 'road';
-    this.activeTool = 'draw'; // 'draw' | 'erase'
+    this.activeTool = 'draw';       // 'draw' | 'erase'
 
     // Model entities
     this.nodes = [];
@@ -490,16 +1022,39 @@ class TrussCraftApp {
     this.currentLevelIdx = 0;
     this.level = LEVELS[0];
     this.maxStressObserved = 0;
+    this.firstFailure = null;
+    this.brokenCount = 0;
+    this.testStartTime = 0;
+    this.resultShown = false;
 
-    // History undo/redo stacks
+    // Presentation state
+    this.time = 0;
+    this.shake = 0;
+    this.slowmo = 0;
+    this.flash = 0;
+    this.clouds = Array.from({ length: 7 }, (_, i) => ({
+      x: hash1(i * 3.1) * 30 - 3,
+      y: 0.4 + hash1(i * 7.7) * 3.2,
+      scale: 0.6 + hash1(i * 5.3) * 1.1,
+      speed: 0.05 + hash1(i * 2.9) * 0.09
+    }));
+
+    // History
     this.undoStack = [];
     this.redoStack = [];
 
-    // Interaction state
+    // Interaction
     this.mouseWorld = { x: 0, y: 0 };
+    this.mouseScreen = { x: 0, y: 0 };
+    this.mouseOnCanvas = false;
     this.dragStartNode = null;
     this.hoverNode = null;
     this.hoverMember = null;
+
+    // Analysis cache
+    this.analysis = null;
+    this.analysisDue = 0;
+    this.progress = this.loadProgress();
 
     this.initCanvas();
     this.bindEvents();
@@ -510,6 +1065,7 @@ class TrussCraftApp {
     requestAnimationFrame(this.loop);
   }
 
+  // ---------- canvas & coordinates ----------
   initCanvas() {
     const handleResize = () => {
       this.dpr = window.devicePixelRatio || 1;
@@ -517,27 +1073,60 @@ class TrussCraftApp {
       const h = this.canvas.parentElement.clientHeight;
       this.canvas.width = w * this.dpr;
       this.canvas.height = h * this.dpr;
-      this.ctx.resetTransform();
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.scale(this.dpr, this.dpr);
+      this.viewW = w;
+      this.viewH = h;
 
-      // Fit 24 world meters horizontally
+      // Fit 24 world metres horizontally, then sit the bank line ~62% down the view
       this.PPM = Math.min(w / 24, h / 15);
       this.originX = Math.max(20, (w - 23 * this.PPM) / 2);
-      this.originY = h * 0.16;
+      const groundY = (this.level && this.level.terrain) ? this.level.terrain.groundY : 7;
+      this.originY = clamp(h * 0.62 - groundY * this.PPM, 8, h * 0.45);
     };
+    this.handleResize = handleResize;
     window.addEventListener('resize', handleResize);
     handleResize();
   }
 
-  toScreen(x, y) {
-    return { x: this.originX + x * this.PPM, y: this.originY + y * this.PPM };
-  }
-  toWorld(sx, sy) {
-    return { x: (sx - this.originX) / this.PPM, y: (sy - this.originY) / this.PPM };
+  toScreen(x, y) { return { x: this.originX + x * this.PPM, y: this.originY + y * this.PPM }; }
+  toWorld(sx, sy) { return { x: (sx - this.originX) / this.PPM, y: (sy - this.originY) / this.PPM }; }
+  sx(x) { return this.originX + x * this.PPM; }
+  sy(y) { return this.originY + y * this.PPM; }
+
+  // ---------- saved progress ----------
+  loadProgress() {
+    try {
+      return JSON.parse(localStorage.getItem('trusscraft.progress') || '{}');
+    } catch (e) { return {}; }
   }
 
-  saveSnapshot() {
-    const snapshot = {
+  saveProgress(levelId, stars, cost) {
+    const prev = this.progress[levelId] || { stars: 0, cost: Infinity };
+    this.progress[levelId] = {
+      stars: Math.max(prev.stars, stars),
+      cost: Math.min(prev.cost === null ? Infinity : prev.cost, cost)
+    };
+    try {
+      localStorage.setItem('trusscraft.progress', JSON.stringify(this.progress));
+    } catch (e) { /* private browsing — progress is session-only */ }
+    this.updateLevelPill();
+  }
+
+  starsFor(levelId) {
+    const p = this.progress[levelId];
+    return p ? p.stars : 0;
+  }
+
+  updateLevelPill() {
+    const stars = this.starsFor(this.level.id);
+    document.getElementById('ui-level').innerText = this.level.title;
+    document.getElementById('ui-level-stars').innerText = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+  }
+
+  // ---------- history ----------
+  snapshotState() {
+    return {
       nodes: this.nodes.map(n => ({ x: n.x, y: n.y, fixed: n.fixed })),
       members: this.members.map(m => ({
         n1Idx: this.nodes.indexOf(m.n1),
@@ -545,9 +1134,13 @@ class TrussCraftApp {
         mat: m.mat
       }))
     };
-    this.undoStack.push(snapshot);
-    if (this.undoStack.length > 30) this.undoStack.shift();
+  }
+
+  saveSnapshot() {
+    this.undoStack.push(this.snapshotState());
+    if (this.undoStack.length > 40) this.undoStack.shift();
     this.redoStack = [];
+    this.refreshHistoryButtons();
   }
 
   restoreSnapshot(snapshot) {
@@ -561,75 +1154,463 @@ class TrussCraftApp {
       return {
         n1, n2, mat: m.mat,
         restLen: Math.hypot(n2.x - n1.x, n2.y - n1.y),
-        broken: false, stress: 0, force: 0
+        broken: false, stress: 0, force: 0, peak: 0, warnPhase: Math.random() * 6.28
       };
     });
     this.updateBudget();
+    this.markDirty();
+  }
+
+  refreshHistoryButtons() {
+    const disabled = this.mode === 'test';
+    document.getElementById('btn-undo').disabled = disabled || this.undoStack.length === 0;
+    document.getElementById('btn-redo').disabled = disabled || this.redoStack.length === 0;
+    document.getElementById('btn-clear').disabled = disabled || this.members.length === 0;
   }
 
   undo() {
-    if (this.mode === 'test' || this.undoStack.length === 0) return;
-    const current = {
-      nodes: this.nodes.map(n => ({ x: n.x, y: n.y, fixed: n.fixed })),
-      members: this.members.map(m => ({
-        n1Idx: this.nodes.indexOf(m.n1),
-        n2Idx: this.nodes.indexOf(m.n2),
-        mat: m.mat
-      }))
-    };
-    this.redoStack.push(current);
-    const prev = this.undoStack.pop();
-    this.restoreSnapshot(prev);
+    if (this.mode === 'test') return this.toast('warn', '⏸', 'Return to design mode first.');
+    if (this.undoStack.length === 0) return;
+    this.redoStack.push(this.snapshotState());
+    this.restoreSnapshot(this.undoStack.pop());
+    this.refreshHistoryButtons();
     audio.playClick();
   }
 
   redo() {
     if (this.mode === 'test' || this.redoStack.length === 0) return;
-    const next = this.redoStack.pop();
-    this.saveSnapshot();
-    this.restoreSnapshot(next);
+    this.undoStack.push(this.snapshotState());
+    this.restoreSnapshot(this.redoStack.pop());
+    this.refreshHistoryButtons();
     audio.playClick();
   }
 
+  // ---------- level lifecycle ----------
   loadLevel(idx) {
     this.currentLevelIdx = idx;
     this.level = LEVELS[idx];
     this.mode = 'build';
     this.undoStack = [];
     this.redoStack = [];
+    this.hintsShown = {};
+    this.overBudgetWarned = false;
+    this.preTestState = null;
 
-    document.getElementById('btn-test').style.display = 'inline-flex';
+    document.getElementById('btn-test').style.display = 'flex';
     document.getElementById('btn-edit').style.display = 'none';
-    document.getElementById('ui-level').innerText = this.level.title;
+    document.getElementById('hud-analysis').classList.remove('show');
 
     this.nodes = this.level.anchors.map(a => ({
-      x: a.x, y: a.y, oldX: a.x, oldY: a.y,
-      fixed: true, mass: 0
+      x: a.x, y: a.y, oldX: a.x, oldY: a.y, fixed: true, mass: 0
     }));
     this.members = [];
     this.vehicle = null;
     this.particles = [];
     this.maxStressObserved = 0;
+    this.firstFailure = null;
+    this.brokenCount = 0;
+    this.resultShown = false;
 
+    if (this.handleResize) this.handleResize();
+    this.updateLevelPill();
     this.updateBudget();
-    this.showModal(this.level.title, this.level.desc, this.level.tip);
+    this.setStressMeter(0);
+    this.refreshHistoryButtons();
+    this.markDirty();
+    this.showBrief();
   }
 
-  showModal(title, text, tip) {
-    document.getElementById('modal-title').innerHTML = title;
-    document.getElementById('modal-body').innerHTML = `
-      <p>${text}</p>
-      ${tip ? `<div class="modal-tips">💡 <b>Engineering Guide:</b> ${tip}</div>` : ''}
-    `;
-    document.getElementById('modal-actions').innerHTML = `<button class="btn btn-primary" onclick="app.closeModal()">Begin Bridge Design</button>`;
+  markDirty() { this.analysisDue = 0; }
+
+  // ==========================================================
+  //  COMMUNICATION: MODALS, TOASTS, COACHING
+  // ==========================================================
+  showModal({ eyebrow = '', title = '', titleClass = '', body = '', tip = '', actions = [] }) {
+    document.getElementById('modal-eyebrow').innerHTML = eyebrow;
+    const titleEl = document.getElementById('modal-title');
+    titleEl.innerHTML = title;
+    titleEl.className = 'modal-title ' + titleClass;
+    document.getElementById('modal-body').innerHTML =
+      body + (tip ? `<div class="modal-tips"><b>💡 Engineering guide</b><br>${tip}</div>` : '');
+    document.getElementById('modal-actions').innerHTML = actions.map(a =>
+      `<button class="btn ${a.cls || ''}" onclick="${a.onclick}">${a.label}</button>`
+    ).join('');
     document.getElementById('modal').classList.add('show');
+    this.modalOpen = true;
   }
 
   closeModal() {
     audio.init();
     document.getElementById('modal').classList.remove('show');
+    this.modalOpen = false;
   }
 
+  showBrief() {
+    const lvl = this.level;
+    const budgetText = lvl.budget >= 99999 ? 'Unlimited' : '$' + lvl.budget.toLocaleString();
+    this.showModal({
+      eyebrow: `Mission brief · Key concept: ${lvl.concept}`,
+      title: lvl.title,
+      body: `
+        <p style="color:var(--text); font-weight:600; margin-bottom:10px;">${lvl.goal}</p>
+        <p>${lvl.desc}</p>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="s-label">Budget</div>
+            <div class="s-value" style="color:var(--accent)">${budgetText}</div>
+          </div>
+          <div class="stat-box">
+            <div class="s-label">Test vehicle</div>
+            <div class="s-value">${(lvl.carMass / 1000).toFixed(1)} t</div>
+          </div>
+          <div class="stat-box">
+            <div class="s-label">Gap to cross</div>
+            <div class="s-value">${(lvl.terrain.rightBank - lvl.terrain.leftBank).toFixed(0)} m</div>
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-dim);">
+          Drag on the grid to lay members. Pick a material above, then press
+          <b style="color:var(--accent)">Test bridge</b> when the checklist is satisfied.
+        </p>`,
+      tip: lvl.tip,
+      actions: [
+        { label: '📘 Engineering guide', cls: '', onclick: 'app.showHelp()' },
+        { label: 'Start designing →', cls: 'btn-primary', onclick: 'app.closeModal()' }
+      ]
+    });
+  }
+
+  /** Plain-language explanation of why the test failed. */
+  explainFailure(f, a) {
+    if (!f) {
+      if (a && !a.deckSpans) {
+        return `No member broke — there was simply <b>no roadway to drive on</b>. Your deck stopped
+                ${a.biggestGap.toFixed(1)} m short, and the vehicle drove straight off the end of it.
+                Vehicles can only travel on <b>Roadway</b> members, so the deck has to run unbroken from
+                one bank to the other before anything else matters.`;
+      }
+      if (a && a.floating > 0) {
+        return `No member broke — but ${a.floating} joint${a.floating > 1 ? 's were' : ' was'} not connected
+                back to any anchor, so that part of the structure was holding nothing up and simply fell away
+                under the vehicle. Every joint needs a path of members leading to an anchor point.`;
+      }
+      return `No member actually snapped — the deck simply <b>deflected too far</b> and the vehicle
+              dropped off it. The structure was too flexible: add more triangles so load is shared
+              between members instead of bending a single long span.`;
+    }
+    const mat = MATERIALS[f.mat].name.toLowerCase();
+    const len = f.len.toFixed(1);
+    if (f.type === 'compression') {
+      if (f.len > 2.6) {
+        return `The first failure was a <b>${len} m ${mat} member in compression</b>, and at that length
+                it <b>buckled</b> — it bowed out sideways rather than being crushed. Buckling resistance
+                falls with the square of length, so a ${len} m strut is only about
+                ${(Math.pow(EULER_REF_LEN / f.len, 2)).toFixed(2)}× as strong as a ${EULER_REF_LEN} m one.
+                <b>Split it into two shorter struts</b> with a joint in the middle, braced sideways by a triangle.`;
+      }
+      return `The first failure was a short <b>${len} m ${mat} member crushed in compression</b>. It was
+              short enough not to buckle, so it simply exceeded the material's strength.
+              <b>Upgrade this one to steel</b>, or add a second load path so two members share the job.`;
+    }
+    if (f.mat === 'cable') {
+      return `A <b>cable snapped in tension</b> after ${len} m of it took the full weight. Cables are strong
+              but not infinite. <b>Add a second cable</b> to a nearby deck joint so the load splits between them.`;
+    }
+    return `The first failure was a <b>${len} m ${mat} member pulled apart in tension</b>. Unlike compression,
+            tension failure does not care about length — it is purely strength. <b>Use steel</b> here, or add a
+            parallel member so each carries half the pull.`;
+  }
+
+  /** Contextual coaching after a failed run, based on what the structure looked like. */
+  diagnoseDesign(primaryIsDeck) {
+    const a = this.analysis || this.analyze();
+    const notes = [];
+    if (!a.deckSpans && !primaryIsDeck) notes.push('The roadway did not reach all the way across — the vehicle drove off into the gap.');
+    if (a.unbraced > 0) notes.push(`${a.unbraced} deck joint${a.unbraced > 1 ? 's have' : ' has'} no diagonal bracing, so the deck is acting like a plank rather than a truss.`);
+    if (a.longStruts > 0) notes.push(`${a.longStruts} member${a.longStruts > 1 ? 's are' : ' is'} over 3 m long — long members in compression buckle first.`);
+    if (a.woodShare > 0.85 && this.level.carMass >= 1800) notes.push('Almost the whole structure is wood. The most heavily loaded members need steel.');
+    if (!primaryIsDeck && (this.maxSag || 0) > this.sagLimit()) {
+      notes.push(`The deck deflected ${this.maxSag.toFixed(2)} m before it gave way — it was bending, not trussing.`);
+    }
+    return notes;
+  }
+
+  showDebrief(success) {
+    if (this.resultShown) return;
+    this.resultShown = true;
+
+    const analysis = this.analysis || this.analyze();
+    const primaryIsDeck = !this.firstFailure && !analysis.deckSpans;
+
+    const cost = this.calculateCost();
+    const budget = this.level.budget;
+    const underBudget = cost <= budget;
+    const peak = Math.min(100, Math.round(this.maxStressObserved * 100));
+    const sag = this.maxSag || 0;
+    const stiff = sag < this.sagLimit();
+    const efficient = underBudget && stiff && (cost <= budget * 0.7 || peak <= 75);
+
+    const stars = success ? (1 + (underBudget ? 1 : 0) + (efficient ? 1 : 0)) : 0;
+    if (success) this.saveProgress(this.level.id, stars, cost);
+
+    const starRow = `
+      <div class="stars-row">
+        <div class="star-item ${success ? 'earned' : ''}">
+          <div class="st-icon">★</div><div class="st-label">Vehicle crossed safely</div>
+        </div>
+        <div class="star-item ${success && underBudget ? 'earned' : ''}">
+          <div class="st-icon">★</div><div class="st-label">Finished under budget</div>
+        </div>
+        <div class="star-item ${success && efficient ? 'earned' : ''}">
+          <div class="st-icon">★</div><div class="st-label">Stiff and efficient<br>(low sag, low cost)</div>
+        </div>
+      </div>`;
+
+    const statGrid = `
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="s-label">Final cost</div>
+          <div class="s-value" style="color:${underBudget ? 'var(--success)' : 'var(--danger)'}">$${cost.toLocaleString()}</div>
+        </div>
+        <div class="stat-box">
+          <div class="s-label">Budget</div>
+          <div class="s-value" style="color:var(--text-muted)">${budget >= 99999 ? '∞' : '$' + budget.toLocaleString()}</div>
+        </div>
+        <div class="stat-box">
+          <div class="s-label">Peak stress</div>
+          <div class="s-value" style="color:${peak > 90 ? 'var(--danger)' : peak > 70 ? 'var(--warning)' : 'var(--success)'}">${peak}%</div>
+        </div>
+        ${primaryIsDeck ? `
+        <div class="stat-box">
+          <div class="s-label">Roadway coverage</div>
+          <div class="s-value" style="color:var(--danger)">${Math.round(analysis.coveredPct * 100)}%</div>
+          <div style="font-size:0.6rem;color:var(--text-dim);margin-top:2px;">${analysis.biggestGap.toFixed(1)} m missing</div>
+        </div>` : `
+        <div class="stat-box">
+          <div class="s-label">Max deck sag</div>
+          <div class="s-value" style="color:${stiff ? 'var(--success)' : 'var(--danger)'}">${sag.toFixed(2)} m</div>
+          <div style="font-size:0.6rem;color:var(--text-dim);margin-top:2px;">limit ${this.sagLimit().toFixed(2)} m</div>
+        </div>`}
+        <div class="stat-box">
+          <div class="s-label">Members failed</div>
+          <div class="s-value" style="color:${this.brokenCount ? 'var(--danger)' : 'var(--success)'}">${this.brokenCount}</div>
+        </div>
+      </div>`;
+
+    const isLast = this.currentLevelIdx >= LEVELS.length - 1;
+
+    if (success) {
+      let verdict;
+      if (stars === 3) {
+        verdict = 'An excellent piece of engineering — safe, affordable, stiff, and with capacity in reserve.';
+      } else if (!stiff) {
+        verdict = `Nothing snapped, but the deck dropped <b>${sag.toFixed(2)} m</b> under the vehicle — roughly
+                   1 part in ${Math.max(1, Math.round((this.level.terrain.rightBank - this.level.terrain.leftBank) / sag))}
+                   of the span. Real bridge codes allow closer to 1 in 250. A deflection like that means the deck is
+                   <b>bending</b> rather than working as a truss: the load has no triangulated path back to the anchors,
+                   so a single line of members is carrying it in bending alone. Add diagonals between the deck joints
+                   and a chord above or below them, and the same load turns into pure tension and compression.`;
+      } else if (!underBudget) {
+        verdict = `It stands, but it came in <b>$${(cost - budget).toLocaleString()} over budget</b>. Look for members carrying almost no load — those are free to delete.`;
+      } else if (!efficient) {
+        verdict = `Solid work. Your peak member reached <b>${peak}%</b> of its capacity, so there is not much margin left. Try adding one more triangle, or trimming cost.`;
+      } else {
+        verdict = 'The bridge carried the load.';
+      }
+
+      const failNote = this.brokenCount > 0
+        ? `<p style="margin-top:10px; color:#fcd34d;">⚠ ${this.brokenCount} member${this.brokenCount > 1 ? 's' : ''} broke during the crossing — the bridge survived, but it is damaged. ${this.explainFailure(this.firstFailure, this.analysis)}</p>`
+        : '';
+
+      this.showModal({
+        eyebrow: 'Load test complete',
+        title: '✅ Bridge certified',
+        titleClass: 'win',
+        body: `${starRow}<p>${verdict}</p>${failNote}${statGrid}`,
+        tip: !stiff
+          ? 'Run the test again after adding your triangles and watch the <b>Deck sag</b> figure in the live panel. Getting it down is the whole point of a truss — the same load, carried by stretching and squashing instead of bending.'
+          : (this.brokenCount === 0 && peak < 60
+            ? 'Your design has plenty of spare strength. Real engineers chase that margin down — could you delete a member, or swap steel for wood, and still pass?'
+            : 'Hover any member during a test to read its exact force and how much of its capacity it is using.'),
+        actions: [
+          { label: '↻ Improve design', onclick: 'app.closeModal(); app.stopSimulation();' },
+          isLast
+            ? { label: '🗺 Choose a level', cls: 'btn-primary', onclick: 'app.showLevels()' }
+            : { label: 'Next challenge →', cls: 'btn-primary', onclick: `app.closeModal(); app.loadLevel(${this.currentLevelIdx + 1});` }
+        ]
+      });
+    } else {
+      const a = analysis;
+      const notes = this.diagnoseDesign(primaryIsDeck);
+      const noteHtml = notes.length
+        ? `<p style="margin-top:12px;"><b>Also worth fixing:</b></p><ul style="margin:6px 0 0 18px; line-height:1.7;">${notes.map(n => `<li>${n}</li>`).join('')}</ul>`
+        : '';
+
+      this.showModal({
+        eyebrow: 'Load test failed',
+        title: '💥 Structural collapse',
+        titleClass: 'lose',
+        body: `${starRow}<p>${this.explainFailure(this.firstFailure, a)}</p>${noteHtml}${statGrid}`,
+        tip: primaryIsDeck
+          ? 'Select the <b>Roadway</b> material and drag a continuous line of deck from one bank to the other. The design checklist in the corner turns green once it spans the full gap.'
+          : 'Run the test again and watch which members turn bright red <b>first</b>. Those are the ones doing the most work — reinforce them before spending anywhere else.',
+        actions: [
+          { label: '📘 Engineering guide', onclick: 'app.showHelp()' },
+          { label: '🔧 Back to design', cls: 'btn-primary', onclick: 'app.closeModal(); app.stopSimulation();' }
+        ]
+      });
+    }
+  }
+
+  showLevels() {
+    const cards = LEVELS.map((lvl, i) => {
+      const stars = this.starsFor(lvl.id);
+      const best = this.progress[lvl.id];
+      const sub = best && best.cost < Infinity
+        ? `${lvl.concept} · best build $${best.cost.toLocaleString()}`
+        : `${lvl.concept} · budget ${lvl.budget >= 99999 ? 'unlimited' : '$' + lvl.budget.toLocaleString()}`;
+      return `
+        <button class="level-card ${i === this.currentLevelIdx ? 'current' : ''}" onclick="app.closeModal(); app.loadLevel(${i});">
+          <div class="lc-num">${lvl.id}</div>
+          <div class="lc-main">
+            <div class="lc-title">${lvl.title.replace(/^\d+\.\s*/, '')}</div>
+            <div class="lc-sub">${sub}</div>
+          </div>
+          <div class="lc-stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
+        </button>`;
+    }).join('');
+
+    const total = LEVELS.reduce((s, l) => s + this.starsFor(l.id), 0);
+    this.showModal({
+      eyebrow: `Curriculum · ${total} of ${LEVELS.length * 3} stars earned`,
+      title: 'Choose a challenge',
+      body: `<div class="level-list">${cards}</div>`,
+      actions: [{ label: 'Close', cls: 'btn-primary', onclick: 'app.closeModal()' }]
+    });
+  }
+
+  showHelp() {
+    const matRows = Object.entries(MATERIALS).map(([key, m]) => `
+      <tr>
+        <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${m.color};margin-right:6px;"></span>${m.name}</td>
+        <td class="num">$${m.cost}</td>
+        <td class="num">${(m.maxTension / 1000).toFixed(0)} kN</td>
+        <td class="num">${m.maxComp === 0 ? '—' : (m.maxComp / 1000).toFixed(0) + ' kN'}</td>
+      </tr>`).join('');
+
+    this.showModal({
+      eyebrow: 'Reference',
+      title: '📘 Engineering handbook',
+      body: `
+        <div class="help-section">
+          <div class="help-h">① Tension and compression</div>
+          <div class="help-p">
+            Every member in a loaded truss is doing one of two jobs. A member in
+            <b style="color:var(--tension)">tension</b> is being pulled apart and stretches slightly. A member in
+            <b style="color:var(--compression)">compression</b> is being squashed and shortens slightly.
+            During a test, TrussCraft colours members blue for tension and red for compression, and the brighter
+            the colour, the closer that member is to failing.
+          </div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-h">② Why triangles</div>
+          <div class="help-p">
+            Push sideways on a square frame and it folds flat into a diamond — no member has to change length,
+            so nothing resists you. Do the same to a triangle and it cannot deform unless a member physically
+            stretches or crushes, which takes enormous force. Trusses are triangles all the way down.
+          </div>
+          <div class="help-diagram">
+            <figure>
+              <svg width="100" height="70" viewBox="0 0 100 70">
+                <path d="M20 55 L20 15 L75 15 L75 55 Z" fill="none" stroke="#ef4444" stroke-width="3" stroke-linejoin="round"/>
+                <path d="M32 62 L47 62 M47 62 l-5 -4 M47 62 l-5 4" stroke="#ef4444" stroke-width="2" fill="none"/>
+              </svg>
+              <figcaption>Square — folds over</figcaption>
+            </figure>
+            <figure>
+              <svg width="100" height="70" viewBox="0 0 100 70">
+                <path d="M20 55 L20 15 L75 15 L75 55 Z M20 15 L75 55" fill="none" stroke="#22c55e" stroke-width="3" stroke-linejoin="round"/>
+              </svg>
+              <figcaption>Braced — rigid</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-h">③ Buckling: length matters</div>
+          <div class="help-p">
+            A long thin member in compression does not get crushed — it bows sideways and folds. The load it can
+            take before buckling drops roughly with the <b>square</b> of its length, so a 4 m strut is about four
+            times weaker than a 2 m one of the same material. This is why real trusses use lots of short members
+            instead of a few long ones, and why a member that is fine in tension may fail in compression.
+          </div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-h">④ Deflection: passing is not the same as good</div>
+          <div class="help-p">
+            A bridge can carry a load without a single member breaking and still be unusable, because it
+            <b>bends too far</b>. Engineers set a deflection limit as a fraction of the span — real road bridges
+            are typically held to about <b>span ÷ 250</b>. TrussCraft measures how far your deck drops under the
+            vehicle and allows a much more forgiving span ÷ 60. A flat, untriangulated deck will blow straight
+            through that; the same deck with triangles added typically sags around fifteen times less for the
+            same load. Watch the <b>Deck sag</b> reading during a test — it is the quickest measure of whether
+            your structure is really working as a truss.
+          </div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-h">⑤ Material properties</div>
+          <table class="mat-table">
+            <tr><th>Material</th><th class="num">Cost/m</th><th class="num">Max tension</th><th class="num">Max compression</th></tr>
+            ${matRows}
+          </table>
+          <div class="help-p" style="margin-top:8px; font-size:0.76rem;">
+            Cable has <b>zero</b> compression capacity — push on it and it simply goes slack.
+          </div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-h">⑥ Controls</div>
+          <div class="key-list">
+            <div><span>Materials</span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></div>
+            <div><span>Eraser</span><kbd>E</kbd></div>
+            <div><span>Run / stop test</span><kbd>Space</kbd></div>
+            <div><span>Force vectors</span><kbd>V</kbd></div>
+            <div><span>Undo / redo</span><kbd>⌘Z</kbd></div>
+            <div><span>This guide</span><kbd>?</kbd></div>
+          </div>
+        </div>`,
+      actions: [{ label: 'Back to work', cls: 'btn-primary', onclick: 'app.closeModal()' }]
+    });
+  }
+
+  /** Transient non-blocking message. */
+  toast(kind, icon, text, ms = 3400) {
+    const wrap = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = `toast ${kind}`;
+    el.innerHTML = `<div class="t-icon">${icon}</div><div class="t-text">${text}</div>`;
+    wrap.appendChild(el);
+    while (wrap.children.length > 3) wrap.removeChild(wrap.firstChild);
+    setTimeout(() => {
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 260);
+    }, ms);
+  }
+
+  /** A coaching hint that only ever fires once per level. */
+  hint(key, text, ms = 5200) {
+    this.hintsShown = this.hintsShown || {};
+    if (this.hintsShown[key]) return;
+    this.hintsShown[key] = true;
+    this.toast('coach', '🎓', text, ms);
+  }
+
+  // ==========================================================
+  //  INPUT & UI BINDING
+  // ==========================================================
   bindEvents() {
     const getPos = (e) => {
       const rect = this.canvas.getBoundingClientRect();
@@ -640,15 +1621,16 @@ class TrussCraftApp {
 
     const onPointerDown = (e) => {
       audio.init();
+      if (this.mode === 'test') return;
       const { sx, sy } = getPos(e);
       const w = this.toWorld(sx, sy);
+      this.mouseWorld = w;
 
-      if (this.mode === 'test') return;
+      if (this.activeTool === 'erase') { this.eraseAt(w.x, w.y); return; }
 
-      if (this.activeTool === 'erase') {
-        this.eraseAt(w.x, w.y);
-        return;
-      }
+      // Capture the pre-drag state up front, whatever the drag turns out to be.
+      this.pendingSnapshot = this.snapshotState();
+      this.createdStartNode = null;
 
       const existing = this.findNearestNode(w.x, w.y, 0.45);
       if (existing) {
@@ -657,8 +1639,8 @@ class TrussCraftApp {
         const snap = this.snapGrid(w.x, w.y);
         const nearSnap = this.findNearestNode(snap.x, snap.y, 0.45);
         if (!nearSnap) {
-          this.saveSnapshot();
           this.dragStartNode = this.createNode(snap.x, snap.y, false);
+          this.createdStartNode = this.dragStartNode;
           audio.playClick();
         } else {
           this.dragStartNode = nearSnap;
@@ -668,138 +1650,265 @@ class TrussCraftApp {
 
     const onPointerMove = (e) => {
       const { sx, sy } = getPos(e);
+      this.mouseScreen = { x: sx, y: sy };
       this.mouseWorld = this.toWorld(sx, sy);
+      this.mouseOnCanvas = true;
 
       this.hoverNode = this.findNearestNode(this.mouseWorld.x, this.mouseWorld.y, 0.4);
       this.hoverMember = this.findNearestMember(this.mouseWorld.x, this.mouseWorld.y, 0.25);
       this.renderTooltip(sx, sy);
+      this.updateCursor();
     };
 
     const onPointerUp = () => {
-      if (!this.dragStartNode || this.mode === 'test') {
-        this.dragStartNode = null;
-        return;
-      }
+      if (this.mode === 'test') { this.dragStartNode = null; return; }
+      if (!this.dragStartNode) return;
+
+      const start = this.dragStartNode;
+      this.dragStartNode = null;
 
       const snap = this.snapGrid(this.mouseWorld.x, this.mouseWorld.y);
       let target = this.findNearestNode(snap.x, snap.y, 0.45);
-      const dist = Math.hypot(snap.x - this.dragStartNode.x, snap.y - this.dragStartNode.y);
+      const dist = Math.hypot(snap.x - start.x, snap.y - start.y);
 
-      if (!target && dist <= MAX_STRUT_LENGTH && dist >= 0.5) {
-        this.saveSnapshot();
-        target = this.createNode(snap.x, snap.y, false);
+      // A tap with no drag: just leave the joint (or nothing) behind.
+      if (!target && dist < MIN_STRUT_LENGTH) {
+        if (dist > 0.01) this.toast('warn', '📏', `Too short — members must be at least ${MIN_STRUT_LENGTH} m.`);
+        this.commitOrRollback(false);
+        this.cleanUnconnectedNodes();
+        this.updateBudget();
+        return;
       }
 
-      if (target && target !== this.dragStartNode) {
-        this.saveSnapshot();
-        this.createMember(this.dragStartNode, target, this.activeMat);
+      if (!target && dist > MAX_STRUT_LENGTH) {
+        this.toast('bad', '📏', `That span is <b>${dist.toFixed(1)} m</b> — the longest single member is <b>${MAX_STRUT_LENGTH} m</b>. Add a joint partway along.`);
+        audio.playError();
+        this.commitOrRollback(false);
+        this.cleanUnconnectedNodes();
+        this.updateBudget();
+        return;
       }
 
-      this.dragStartNode = null;
+      if (!target) target = this.createNode(snap.x, snap.y, false);
+
+      if (target && target !== start) {
+        const made = this.createMember(start, target, this.activeMat);
+        this.commitOrRollback(made);
+        if (made) this.afterBuildFeedback(made);
+      } else {
+        this.commitOrRollback(false);
+      }
+
       this.cleanUnconnectedNodes();
       this.updateBudget();
+      this.markDirty();
     };
 
     this.canvas.addEventListener('mousedown', onPointerDown);
     this.canvas.addEventListener('mousemove', onPointerMove);
+    this.canvas.addEventListener('mouseleave', () => {
+      this.mouseOnCanvas = false;
+      this.hoverMember = null;
+      this.hoverNode = null;
+      document.getElementById('hud-tooltip').style.display = 'none';
+    });
     window.addEventListener('mouseup', onPointerUp);
 
-    this.canvas.addEventListener('touchstart', (e) => { onPointerDown(e); e.preventDefault(); }, { passive: false });
+    this.canvas.addEventListener('touchstart', (e) => { onPointerMove(e); onPointerDown(e); e.preventDefault(); }, { passive: false });
     this.canvas.addEventListener('touchmove', (e) => { onPointerMove(e); e.preventDefault(); }, { passive: false });
     window.addEventListener('touchend', onPointerUp);
 
-    // Keyboard shortcuts
+    // ---- keyboard ----
     window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.shiftKey ? this.redo() : this.undo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-        this.redo();
-      } else if (e.key === ' ') {
+      const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
+      if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); this.redo(); return; }
+      if (e.ctrlKey || e.metaKey) return;
+
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (this.modalOpen) return;
         this.mode === 'build' ? this.startSimulation() : this.stopSimulation();
+      } else if (e.key === 'Escape') {
+        if (this.modalOpen) this.closeModal();
+      } else if (['1', '2', '3', '4'].includes(e.key)) {
+        const mats = ['road', 'wood', 'steel', 'cable'];
+        this.selectMaterial(mats[+e.key - 1]);
+      } else if (k === 'e') {
+        this.toggleEraser();
+      } else if (k === 'v') {
+        document.getElementById('btn-vectors').click();
+      } else if (e.key === '?' || k === 'h') {
+        this.showHelp();
       }
     });
 
-    // Toolbar buttons
+    // ---- toolbar ----
     document.querySelectorAll('.mat-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        audio.init();
-        document.querySelectorAll('.mat-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.activeMat = btn.dataset.mat;
-        this.activeTool = 'draw';
-        document.getElementById('btn-erase').classList.remove('active');
-      });
+      btn.addEventListener('click', () => this.selectMaterial(btn.dataset.mat));
     });
 
-    document.getElementById('btn-erase').addEventListener('click', () => {
-      audio.init();
-      this.activeTool = this.activeTool === 'erase' ? 'draw' : 'erase';
-      document.getElementById('btn-erase').classList.toggle('active', this.activeTool === 'erase');
-    });
-
+    document.getElementById('btn-erase').addEventListener('click', () => this.toggleEraser());
     document.getElementById('btn-undo').addEventListener('click', () => this.undo());
     document.getElementById('btn-redo').addEventListener('click', () => this.redo());
+
     document.getElementById('btn-clear').addEventListener('click', () => {
-      if (this.mode === 'test') return;
+      if (this.mode === 'test' || this.members.length === 0) return;
+      const n = this.members.length;
       this.saveSnapshot();
       this.members = [];
-      this.nodes = this.nodes.filter(n => n.fixed);
+      this.nodes = this.nodes.filter(nd => nd.fixed);
       this.updateBudget();
-      audio.playClick();
+      this.markDirty();
+      this.refreshHistoryButtons();
+      audio.playErase();
+      this.toast('info', '↺', `Cleared ${n} member${n > 1 ? 's' : ''}. <b>Undo</b> brings them back.`);
     });
 
     document.getElementById('btn-test').addEventListener('click', () => this.startSimulation());
     document.getElementById('btn-edit').addEventListener('click', () => this.stopSimulation());
+    document.getElementById('btn-help').addEventListener('click', () => this.showHelp());
+    document.getElementById('btn-levels').addEventListener('click', () => this.showLevels());
 
-    document.getElementById('btn-speed').addEventListener('click', (e) => {
+    document.getElementById('btn-speed').addEventListener('click', () => {
       audio.init();
       this.simSpeed = this.simSpeed === 1.0 ? 0.25 : this.simSpeed === 0.25 ? 2.0 : 1.0;
-      e.target.innerText = `⏱ ${this.simSpeed.toFixed(2).replace('.00', '')}x`;
+      const label = this.simSpeed === 0.25 ? '¼x' : this.simSpeed === 2 ? '2x' : '1x';
+      document.getElementById('speed-label').innerText = label;
+      document.getElementById('btn-speed').classList.toggle('active', this.simSpeed !== 1.0);
+      if (this.simSpeed === 0.25) this.toast('info', '🐢', 'Slow motion — easier to see which member fails first.');
+      audio.playUI();
     });
 
     document.getElementById('btn-vectors').addEventListener('click', (e) => {
       audio.init();
       this.showVectors = !this.showVectors;
-      e.target.classList.toggle('active', this.showVectors);
-    });
-
-    document.getElementById('btn-levels').addEventListener('click', () => {
-      let msg = `<div style="display:flex; flex-direction:column; gap:8px;">`;
-      LEVELS.forEach((lvl, i) => {
-        msg += `<button class="btn" style="justify-content:space-between;" onclick="app.loadLevel(${i}); app.closeModal();">
-          <span>${lvl.title}</span><span style="color:var(--text-muted)">Budget: $${lvl.budget}</span>
-        </button>`;
-      });
-      msg += `</div>`;
-      this.showModal("Select Curriculum Level", msg, null);
+      document.getElementById('btn-vectors').classList.toggle('active', this.showVectors);
+      audio.playUI();
+      if (this.showVectors) {
+        this.toast('info', '⇄', 'Arrows pointing <b>inward</b> mean the member is being stretched; <b>outward</b> means squashed.');
+      }
     });
   }
 
+  selectMaterial(mat) {
+    if (!MATERIALS[mat]) return;
+    audio.init();
+    this.activeMat = mat;
+    this.activeTool = 'draw';
+    document.querySelectorAll('.mat-btn').forEach(b => b.classList.toggle('active', b.dataset.mat === mat));
+    document.getElementById('btn-erase').classList.remove('active');
+    this.updateCursor();
+    audio.playUI();
+  }
+
+  toggleEraser() {
+    audio.init();
+    this.activeTool = this.activeTool === 'erase' ? 'draw' : 'erase';
+    const on = this.activeTool === 'erase';
+    document.getElementById('btn-erase').classList.toggle('active', on);
+    if (on) document.querySelectorAll('.mat-btn').forEach(b => b.classList.remove('active'));
+    else document.querySelectorAll('.mat-btn').forEach(b => b.classList.toggle('active', b.dataset.mat === this.activeMat));
+    this.updateCursor();
+    audio.playUI();
+  }
+
+  updateCursor() {
+    if (this.mode === 'test') { this.canvas.style.cursor = 'default'; return; }
+    if (this.activeTool === 'erase') {
+      this.canvas.style.cursor = (this.hoverMember || (this.hoverNode && !this.hoverNode.fixed)) ? 'pointer' : 'not-allowed';
+    } else {
+      this.canvas.style.cursor = this.hoverNode ? 'grab' : 'crosshair';
+    }
+  }
+
+  /** Keep or discard the snapshot captured when a drag started. */
+  commitOrRollback(committed) {
+    if (committed) {
+      if (this.pendingSnapshot) {
+        this.undoStack.push(this.pendingSnapshot);
+        if (this.undoStack.length > 40) this.undoStack.shift();
+        this.redoStack = [];
+      } else {
+        this.saveSnapshot();
+      }
+    } else if (this.createdStartNode) {
+      // Drag produced nothing — drop the orphan joint we speculatively created.
+      this.nodes = this.nodes.filter(n => n !== this.createdStartNode);
+    }
+    this.pendingSnapshot = null;
+    this.createdStartNode = null;
+    this.refreshHistoryButtons();
+  }
+
+  /** Immediate, specific reactions to what the student just built. */
+  afterBuildFeedback(member) {
+    const cost = this.calculateCost();
+    if (cost > this.level.budget && !this.overBudgetWarned) {
+      this.overBudgetWarned = true;
+      this.toast('bad', '💰', `Over budget by <b>$${(cost - this.level.budget).toLocaleString()}</b>. You can still test, but you will lose a star.`);
+    } else if (cost <= this.level.budget) {
+      this.overBudgetWarned = false;
+    }
+
+    if (member.mat === 'cable') {
+      const rising = Math.abs(member.n1.y - member.n2.y) > 0.4;
+      if (!rising) {
+        this.hint('flat-cable', 'That cable is nearly horizontal. Cables only work when they <b>pull upward</b> — anchor them to something higher.');
+      }
+    }
+    if (member.mat === 'road' && member.restLen > 3) {
+      this.hint('long-road', 'Long unsupported deck sections sag badly. Break the roadway into shorter spans with a joint between each.');
+    }
+    if (this.members.length === 6) {
+      this.hint('checklist', 'Watch the <b>design checklist</b> in the top-left — it updates as you build.');
+    }
+  }
+
+  // ==========================================================
+  //  STRUCTURE EDITING
+  // ==========================================================
   snapGrid(x, y) {
-    const snap = 0.5;
-    return { x: Math.round(x / snap) * snap, y: Math.round(y / snap) * snap };
+    return { x: Math.round(x / GRID_SNAP) * GRID_SNAP, y: Math.round(y / GRID_SNAP) * GRID_SNAP };
   }
 
   createNode(x, y, fixed = false) {
-    const node = { x, y, oldX: x, oldY: y, fixed, mass: fixed ? 0 : 5 };
+    const node = { x, y, oldX: x, oldY: y, fixed, mass: fixed ? 0 : 5, born: this.time };
     this.nodes.push(node);
     return node;
   }
 
   createMember(n1, n2, mat) {
     const len = Math.hypot(n2.x - n1.x, n2.y - n1.y);
-    if (len > MAX_STRUT_LENGTH) return;
-    const exists = this.members.some(m => (m.n1 === n1 && m.n2 === n2) || (m.n1 === n2 && m.n2 === n1));
-    if (exists) return;
+    if (len > MAX_STRUT_LENGTH || len < MIN_STRUT_LENGTH) return null;
 
-    this.members.push({
+    const exists = this.members.find(m => (m.n1 === n1 && m.n2 === n2) || (m.n1 === n2 && m.n2 === n1));
+    if (exists) {
+      if (exists.mat === mat) {
+        this.toast('warn', '⧉', 'There is already a member there.');
+        audio.playError();
+        return null;
+      }
+      // Same span, different material: treat it as an upgrade.
+      exists.mat = mat;
+      audio.playPlace();
+      this.toast('info', '🔧', `Swapped that member to <b>${MATERIALS[mat].name}</b>.`, 2200);
+      return exists;
+    }
+
+    const member = {
       n1, n2, mat,
       restLen: len,
       broken: false,
       stress: 0,
-      force: 0
-    });
-    audio.playClick();
+      force: 0,
+      peak: 0,
+      born: this.time,
+      warnPhase: Math.random() * 6.28
+    };
+    this.members.push(member);
+    audio.playPlace();
+    return member;
   }
 
   eraseAt(x, y) {
@@ -809,7 +1918,8 @@ class TrussCraftApp {
       this.members = this.members.filter(item => item !== m);
       this.cleanUnconnectedNodes();
       this.updateBudget();
-      audio.playClick();
+      this.markDirty();
+      audio.playErase();
       return;
     }
     const n = this.findNearestNode(x, y, 0.4);
@@ -818,12 +1928,19 @@ class TrussCraftApp {
       this.members = this.members.filter(item => item.n1 !== n && item.n2 !== n);
       this.nodes = this.nodes.filter(item => item !== n);
       this.updateBudget();
-      audio.playClick();
+      this.markDirty();
+      audio.playErase();
+      return;
+    }
+    if (n && n.fixed) {
+      this.toast('warn', '⚓', 'Anchor points are bolted to the rock — they cannot be removed.', 2400);
+      audio.playError();
     }
   }
 
   cleanUnconnectedNodes() {
-    this.nodes = this.nodes.filter(n => n.fixed || this.members.some(m => m.n1 === n || m.n2 === n));
+    this.nodes = this.nodes.filter(n =>
+      n.fixed || n === this.dragStartNode || this.members.some(m => m.n1 === n || m.n2 === n));
   }
 
   findNearestNode(x, y, maxDist) {
@@ -850,7 +1967,7 @@ class TrussCraftApp {
     const l2 = dx * dx + dy * dy;
     if (l2 === 0) return Math.hypot(px - x1, py - y1);
     let t = ((px - x1) * dx + (py - y1) * dy) / l2;
-    t = Math.max(0, Math.min(1, t));
+    t = clamp(t, 0, 1);
     return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
   }
 
@@ -860,11 +1977,18 @@ class TrussCraftApp {
 
   updateBudget() {
     const cost = this.calculateCost();
-    const el = document.getElementById('ui-budget');
-    el.innerText = `$${cost.toLocaleString()} / $${this.level.budget.toLocaleString()}`;
-    el.style.color = cost > this.level.budget ? 'var(--danger)' : 'var(--accent)';
+    const budget = this.level.budget;
+    const pct = budget >= 99999 ? Math.min(100, cost / 6000 * 100) : (cost / budget) * 100;
 
-    // Distribute dead loads
+    const el = document.getElementById('ui-budget');
+    el.innerText = '$' + cost.toLocaleString();
+    el.style.color = cost > budget ? 'var(--danger)' : 'var(--text)';
+
+    const bar = document.getElementById('ui-budget-bar');
+    bar.style.width = Math.min(100, pct) + '%';
+    bar.className = 'meter-fill ' + (pct > 100 ? 'bad' : pct > 85 ? 'warn' : 'good');
+
+    // Distribute dead load of every member onto its two joints
     this.nodes.forEach(n => n.mass = n.fixed ? 0 : 5);
     this.members.forEach(m => {
       const halfMass = (m.restLen * MATERIALS[m.mat].mass) * 0.5;
@@ -873,53 +1997,241 @@ class TrussCraftApp {
     });
   }
 
+  // ==========================================================
+  //  STRUCTURAL ANALYSIS (drives the checklist and coaching)
+  // ==========================================================
+  analyze() {
+    const t = this.level.terrain;
+    const roadMembers = this.members.filter(m => m.mat === 'road' && !m.broken);
+
+    // 1. Does roadway cover the whole gap? Merge x-intervals and look for holes.
+    const spans = roadMembers
+      .map(m => [Math.min(m.n1.x, m.n2.x), Math.max(m.n1.x, m.n2.x)])
+      .sort((a, b) => a[0] - b[0]);
+    let covered = 0, cursor = t.leftBank, biggestGap = 0;
+    for (const [a, b] of spans) {
+      if (b <= cursor) continue;
+      if (a > cursor) biggestGap = Math.max(biggestGap, Math.min(a, t.rightBank) - cursor);
+      const from = Math.max(a, cursor);
+      const to = Math.min(b, t.rightBank);
+      if (to > from) covered += to - from;
+      cursor = Math.max(cursor, Math.min(b, t.rightBank));
+      if (cursor >= t.rightBank) break;
+    }
+    if (cursor < t.rightBank) biggestGap = Math.max(biggestGap, t.rightBank - cursor);
+    const gapWidth = t.rightBank - t.leftBank;
+    const deckSpans = roadMembers.length > 0 && covered >= gapWidth - 0.26;
+
+    // 2. Is every part of the structure tied back to an anchor? (union-find)
+    const idx = new Map(this.nodes.map((n, i) => [n, i]));
+    const parent = this.nodes.map((_, i) => i);
+    const find = (a) => { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
+    const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+    this.members.forEach(m => { if (!m.broken) union(idx.get(m.n1), idx.get(m.n2)); });
+    const anchoredRoots = new Set();
+    this.nodes.forEach((n, i) => { if (n.fixed) anchoredRoots.add(find(i)); });
+    const floating = this.nodes.filter((n, i) => !n.fixed && !anchoredRoots.has(find(i))).length;
+
+    // 3. Deck joints with no diagonal bracing behave like a plank, not a truss.
+    let unbraced = 0;
+    const deckNodes = new Set();
+    roadMembers.forEach(m => { deckNodes.add(m.n1); deckNodes.add(m.n2); });
+    deckNodes.forEach(n => {
+      if (n.fixed) return;
+      const attached = this.members.filter(m => !m.broken && (m.n1 === n || m.n2 === n));
+      if (!attached.some(m => m.mat !== 'road')) unbraced++;
+    });
+
+    // 4. Loose ends and buckling-prone struts
+    const dangling = this.nodes.filter(n =>
+      !n.fixed && this.members.filter(m => !m.broken && (m.n1 === n || m.n2 === n)).length === 1).length;
+    const longStruts = this.members.filter(m => !m.broken && m.mat !== 'cable' && m.restLen > 3.0).length;
+    const woodLen = this.members.filter(m => m.mat === 'wood').reduce((s, m) => s + m.restLen, 0);
+    const totalLen = this.members.reduce((s, m) => s + m.restLen, 0) || 1;
+
+    const cost = this.calculateCost();
+    return {
+      cost,
+      overBudget: cost > this.level.budget,
+      deckSpans, biggestGap, coveredPct: clamp(covered / gapWidth, 0, 1),
+      floating, unbraced, dangling, longStruts,
+      woodShare: woodLen / totalLen,
+      memberCount: this.members.filter(m => !m.broken).length,
+      ready: deckSpans && floating === 0
+    };
+  }
+
+  /** Redraw the on-screen checklist from the current analysis. */
+  renderObjectives() {
+    const a = this.analysis;
+    if (!a) return;
+    const budgetUnlimited = this.level.budget >= 99999;
+
+    const items = [
+      {
+        state: a.memberCount > 0 ? 'done' : '',
+        text: a.memberCount > 0 ? `Structure started — ${a.memberCount} members` : 'Drag on the grid to place your first member'
+      },
+      {
+        state: a.deckSpans ? 'done' : (a.coveredPct > 0 ? 'warn' : ''),
+        text: a.deckSpans
+          ? 'Roadway spans the full gap'
+          : `Roadway spans the gap <b>(${Math.round(a.coveredPct * 100)}%)</b>`
+      },
+      {
+        state: a.floating === 0 ? (a.memberCount > 0 ? 'done' : '') : 'bad',
+        text: a.floating === 0
+          ? 'Everything is tied to an anchor'
+          : `${a.floating} joint${a.floating > 1 ? 's are' : ' is'} floating free of any anchor`
+      },
+      {
+        state: a.unbraced === 0 ? (a.deckSpans ? 'done' : '') : 'warn',
+        text: a.unbraced === 0
+          ? 'Deck joints are triangulated'
+          : `${a.unbraced} deck joint${a.unbraced > 1 ? 's need' : ' needs'} diagonal bracing`
+      }
+    ];
+
+    if (!budgetUnlimited) {
+      items.push({
+        state: a.overBudget ? 'bad' : (a.memberCount > 0 ? 'done' : ''),
+        text: a.overBudget
+          ? `Over budget by <b>$${(a.cost - this.level.budget).toLocaleString()}</b>`
+          : `Within budget — <b>$${(this.level.budget - a.cost).toLocaleString()}</b> left`
+      });
+    }
+
+    const html = items.map(i =>
+      `<div class="obj-item ${i.state}"><div class="tick">${i.state === 'bad' ? '!' : i.state === 'warn' ? '·' : '✓'}</div><div>${i.text}</div></div>`
+    ).join('');
+
+    const list = document.getElementById('obj-list');
+    if (list.dataset.sig !== html) {
+      list.dataset.sig = html;
+      list.innerHTML = html;
+    }
+  }
+
   renderTooltip(sx, sy) {
     const tip = document.getElementById('hud-tooltip');
-    if (this.hoverMember && !this.hoverMember.broken) {
-      const m = this.hoverMember;
+    const m = this.hoverMember;
+
+    if (m && !m.broken) {
       const mat = MATERIALS[m.mat];
-      const isComp = m.force < 0;
+      const isComp = m.force < -60;
+      const isTens = m.force > 60;
       const pct = Math.round(m.stress * 100);
+      const color = stressColor(m.force, m.stress);
+      const capacity = isComp
+        ? Math.round(mat.maxComp * Math.min(1, Math.pow(EULER_REF_LEN / m.restLen, 1.8)))
+        : mat.maxTension;
+
+      let stateLine;
+      if (this.mode !== 'test') {
+        stateLine = `<div class="tt-row">Buckling-safe up to <span>${(capacity / 1000).toFixed(0)} kN</span> at this length</div>`;
+      } else {
+        stateLine = `
+          <div class="tt-row">${isComp ? 'Compression' : isTens ? 'Tension' : 'Almost unloaded'}:
+            <span style="color:${color}">${(Math.abs(m.force) / 1000).toFixed(1)} kN</span></div>
+          <div class="tt-row">Capacity used: <span>${pct}%</span> ${pct >= 85 ? '⚠' : ''}</div>
+          <div class="tt-bar"><div style="width:${Math.min(100, pct)}%; background:${color}"></div></div>`;
+      }
 
       tip.style.display = 'block';
       tip.style.left = `${sx}px`;
       tip.style.top = `${sy}px`;
       tip.innerHTML = `
-        <b>${mat.name} Chord</b> (${m.restLen.toFixed(1)}m)<br>
-        Force: <span style="color:${isComp ? '#ef4444' : '#38bdf8'}">${Math.abs(Math.round(m.force))} N [${isComp ? 'Compression' : 'Tension'}]</span><br>
-        Load Capacity: <b>${pct}%</b>
-      `;
-    } else {
-      tip.style.display = 'none';
-    }
-  }
-
-  // --- RUNTIME SIMULATION (TEST PHASE) ---
-  startSimulation() {
-    audio.init();
-    const hasRoad = this.members.some(m => m.mat === 'road');
-    if (!hasRoad) {
-      alert("A bridge must contain Roadway segments for vehicles to cross!");
+        <div class="tt-head"><span class="tt-swatch" style="background:${mat.color}"></span>${mat.name} · ${m.restLen.toFixed(1)} m</div>
+        <div class="tt-row">Cost: <span>$${Math.round(m.restLen * mat.cost).toLocaleString()}</span></div>
+        ${stateLine}`;
       return;
     }
 
-    this.saveSnapshot();
+    const n = this.hoverNode;
+    if (n && this.mode !== 'test') {
+      const count = this.members.filter(mm => !mm.broken && (mm.n1 === n || mm.n2 === n)).length;
+      tip.style.display = 'block';
+      tip.style.left = `${sx}px`;
+      tip.style.top = `${sy}px`;
+      tip.innerHTML = n.fixed
+        ? `<div class="tt-head">⚓ Anchor point</div><div class="tt-row">Bolted to bedrock — carries any load</div>`
+        : `<div class="tt-head">Joint</div><div class="tt-row"><span>${count}</span> member${count === 1 ? '' : 's'} connected${count < 2 ? ' — loose end' : ''}</div>`;
+      return;
+    }
+
+    tip.style.display = 'none';
+  }
+
+  // ==========================================================
+  //  LOAD TEST (SIMULATION)
+  // ==========================================================
+  startSimulation() {
+    audio.init();
+    const a = this.analysis = this.analyze();
+
+    if (this.members.length === 0) {
+      this.toast('bad', '✋', 'Nothing to test yet — drag on the grid to lay some members.');
+      this.nudgeButton('btn-test');
+      audio.playError();
+      return;
+    }
+    if (!this.members.some(m => m.mat === 'road')) {
+      this.toast('bad', '🛣', 'Vehicles can only drive on <b>roadway</b>. Select the Roadway material and lay a deck across the gap.', 5000);
+      this.nudgeButton('btn-test');
+      audio.playError();
+      return;
+    }
+
+    // Warnings that do not block the test — the failure itself is the lesson.
+    if (!a.deckSpans) {
+      this.toast('warn', '⚠', `The roadway leaves a <b>${a.biggestGap.toFixed(1)} m</b> gap. Testing anyway — watch what happens.`, 4200);
+    } else if (a.floating > 0) {
+      this.toast('warn', '⚠', `${a.floating} joint${a.floating > 1 ? 's are' : ' is'} not connected to any anchor. That section will simply fall.`, 4200);
+    } else if (a.unbraced > 2) {
+      this.toast('warn', '⚠', `${a.unbraced} deck joints have no diagonal bracing — expect heavy sagging.`, 4200);
+    }
+
+    this.preTestState = this.snapshotState();
     this.mode = 'test';
     this.maxStressObserved = 0;
-    document.getElementById('btn-test').style.display = 'none';
-    document.getElementById('btn-edit').style.display = 'inline-flex';
+    this.firstFailure = null;
+    this.brokenCount = 0;
+    this.resultShown = false;
+    this.testStartTime = this.time;
+    this.maxSag = 0;
+    this.currentSag = 0;
+    this.sagWarned = false;
+    this.members.forEach(m => { m.peak = 0; m.broken = false; });
+    this.nodes.forEach(n => { n.restY = n.y; });
 
-    // Spawn 2-wheel vehicle
+    document.getElementById('btn-test').style.display = 'none';
+    document.getElementById('btn-edit').style.display = 'flex';
+    document.getElementById('hud-analysis').classList.add('show');
+    document.getElementById('hud-tooltip').style.display = 'none';
+    this.refreshHistoryButtons();
+    this.updateCursor();
+    this.renderObjectives();
+
+    const t = this.level.terrain;
     this.vehicle = {
-      x: this.level.terrain.leftBank - 1.2,
-      y: this.level.terrain.groundY - 0.45,
+      x: t.leftBank - 1.6,
+      y: t.groundY - 0.45,
+      startX: t.leftBank - 1.6,
       vx: 2.2,
       vy: 0,
-      width: 1.6,
-      wheelRadius: 0.28,
+      width: this.level.carMass > 3000 ? 2.4 : this.level.carMass > 1800 ? 2.0 : 1.7,
+      wheelRadius: this.level.carMass > 3000 ? 0.34 : 0.28,
       mass: this.level.carMass,
+      type: this.level.carMass > 3000 ? 'truck' : this.level.carMass > 1800 ? 'van' : 'car',
+      wheelAngle: 0,
+      tilt: 0,
+      frontY: null,
+      rearY: null,
+      grounded: false,
+      wasGrounded: true,
       crashed: false,
-      escaped: false
+      escaped: false,
+      exhaustTimer: 0
     };
 
     audio.startEngine();
@@ -929,28 +2241,74 @@ class TrussCraftApp {
     audio.init();
     audio.stopEngine();
     this.mode = 'build';
-    document.getElementById('btn-test').style.display = 'inline-flex';
+    document.getElementById('btn-test').style.display = 'flex';
     document.getElementById('btn-edit').style.display = 'none';
+    document.getElementById('hud-analysis').classList.remove('show');
 
-    if (this.undoStack.length > 0) {
-      const current = this.undoStack[this.undoStack.length - 1];
-      this.restoreSnapshot(current);
-    }
+    // Rewind to the exact structure the student had before the test ran.
+    if (this.preTestState) this.restoreSnapshot(this.preTestState);
     this.vehicle = null;
     this.particles = [];
-    document.getElementById('ui-stress').innerText = '0%';
-    document.getElementById('ui-stress').style.color = 'var(--text)';
+    this.shake = 0;
+    this.slowmo = 0;
+    this.setStressMeter(0);
+    this.refreshHistoryButtons();
+    this.updateCursor();
+    this.markDirty();
+  }
+
+  nudgeButton(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('nudge');
+    void el.offsetWidth;
+    el.classList.add('nudge');
+  }
+
+  setStressMeter(pct) {
+    const el = document.getElementById('ui-stress');
+    el.innerText = `${pct}%`;
+    el.style.color = pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warning)' : pct > 0 ? 'var(--success)' : 'var(--text)';
+    document.getElementById('ui-stress-bar').style.width = Math.min(100, pct) + '%';
+  }
+
+  /** Topmost supporting surface under a wheel, or null if it is in mid-air. */
+  probeSupport(wx, wy) {
+    const t = this.level.terrain;
+    let best = null;
+
+    if (wx <= t.leftBank || wx >= t.rightBank) {
+      const d = wy - t.groundY;
+      if (d > -0.45 && d < 0.6) best = { y: t.groundY, member: null, t: 0 };
+    }
+
+    for (const m of this.members) {
+      if (m.broken || m.mat !== 'road') continue;
+      const minX = Math.min(m.n1.x, m.n2.x) - 0.08;
+      const maxX = Math.max(m.n1.x, m.n2.x) + 0.08;
+      if (wx < minX || wx > maxX) continue;
+
+      const segLenX = m.n2.x - m.n1.x;
+      const tt = clamp(segLenX !== 0 ? (wx - m.n1.x) / segLenX : 0.5, 0, 1);
+      const surfaceY = m.n1.y + tt * (m.n2.y - m.n1.y);
+      const penetration = wy - surfaceY;
+
+      if (penetration > -0.4 && penetration < 0.5) {
+        if (!best || surfaceY < best.y) best = { y: surfaceY, member: m, t: tt };
+      }
+    }
+    return best;
   }
 
   stepPhysics(dt) {
     if (this.mode !== 'test') return;
 
     const subSteps = 16;
-    const subDt = (dt * this.simSpeed) / subSteps;
+    const timeScale = this.slowmo > 0 ? lerp(0.28, 1, 1 - this.slowmo) : 1;
+    const subDt = (dt * this.simSpeed * timeScale) / subSteps;
     const g = 9.81;
 
     for (let step = 0; step < subSteps; step++) {
-      // 1. Verlet integration for nodes
+      // --- 1. Verlet integration ---
       for (const n of this.nodes) {
         if (n.fixed) continue;
         const vx = (n.x - n.oldX) * 0.9992;
@@ -961,7 +2319,7 @@ class TrussCraftApp {
         n.y += vy + g * subDt * subDt;
       }
 
-      // 2. Position-Based Dynamics (PBD) Constraint Relaxation & Euler Buckling
+      // --- 2. Constraint relaxation, axial force, Euler buckling ---
       let peakStress = 0;
       for (const m of this.members) {
         if (m.broken) continue;
@@ -971,12 +2329,8 @@ class TrussCraftApp {
         const delta = dist - m.restLen;
         const mat = MATERIALS[m.mat];
 
-        // Cable buckling under compression
-        if (mat.isCable && delta < 0) {
-          m.stress = 0;
-          m.force = 0;
-          continue;
-        }
+        // A cable pushed on simply goes slack — it carries nothing.
+        if (mat.isCable && delta < 0) { m.stress = 0; m.force = 0; continue; }
 
         const stiffness = 0.88;
         const diff = (delta / (dist || 0.001)) * stiffness;
@@ -990,289 +2344,906 @@ class TrussCraftApp {
           if (!m.n2.fixed) { m.n2.x -= dx * shift * invM2; m.n2.y -= dy * shift * invM2; }
         }
 
-        // Axial internal forces
-        const elasticModulus = 200000;
         const strain = delta / m.restLen;
-        const force = strain * elasticModulus;
+        const force = strain * ELASTIC_MODULUS;
         m.force = force;
 
-        // Statics Capacity & Euler Buckling Limit
-        let capacityRatio = 0;
+        let capacityRatio;
         if (force >= 0) {
           capacityRatio = force / mat.maxTension;
         } else {
-          // Euler buckling penalty for long compression struts: P_crit proportional to 1 / L^2
+          // Euler buckling: critical load falls with the square of length.
           const lengthFactor = Math.min(1.0, Math.pow(EULER_REF_LEN / m.restLen, 1.8));
           const effectiveMaxComp = mat.maxComp * lengthFactor;
           capacityRatio = Math.abs(force) / (effectiveMaxComp || 1);
         }
 
         m.stress = capacityRatio;
+        if (capacityRatio > m.peak) m.peak = capacityRatio;
         if (capacityRatio > peakStress) peakStress = capacityRatio;
-
         if (capacityRatio > 0.82) audio.playCreak();
 
-        // Failure threshold
-        if (capacityRatio >= 1.0) {
-          m.broken = true;
-          audio.playSnap();
-          this.emitDebris(m);
-        }
+        if (capacityRatio >= 1.0) this.breakMember(m, force);
       }
 
-      // 3. Dynamic Wheel-Road Interaction
-      if (this.vehicle && !this.vehicle.crashed) {
-        const v = this.vehicle;
-        v.x += v.vx * subDt;
-        v.vy += g * subDt;
-        v.y += v.vy * subDt;
-
-        const wheelXPositions = [v.x - v.width * 0.4, v.x + v.width * 0.4];
-        let groundedCount = 0;
-
-        wheelXPositions.forEach(wx => {
-          const wy = v.y + 0.35;
-
-          // Abutment contact
-          if ((wx <= this.level.terrain.leftBank || wx >= this.level.terrain.rightBank) && wy >= this.level.terrain.groundY) {
-            v.y = this.level.terrain.groundY - 0.35;
-            v.vy = 0;
-            groundedCount++;
-            return;
-          }
-
-          // Road member contact
-          for (const m of this.members) {
-            if (m.broken || m.mat !== 'road') continue;
-            const xMin = Math.min(m.n1.x, m.n2.x) - 0.1;
-            const xMax = Math.max(m.n1.x, m.n2.x) + 0.1;
-
-            if (wx >= xMin && wx <= xMax) {
-              const segLenX = m.n2.x - m.n1.x;
-              const t = segLenX !== 0 ? (wx - m.n1.x) / segLenX : 0.5;
-              if (t >= 0 && t <= 1) {
-                const surfaceY = m.n1.y + t * (m.n2.y - m.n1.y);
-                const penetration = wy - surfaceY;
-
-                if (penetration >= -0.35 && penetration <= 0.4) {
-                  v.y = surfaceY - 0.35;
-                  v.vy = 0;
-                  groundedCount++;
-
-                  // Dynamic wheel load transfer to deck joints
-                  const wheelWeight = (v.mass * g) / 2;
-                  const impulse = (wheelWeight * subDt) / subSteps;
-                  if (!m.n1.fixed) m.n1.y += (1 - t) * impulse * 0.003;
-                  if (!m.n2.fixed) m.n2.y += t * impulse * 0.003;
-                }
-              }
-            }
-          }
-        });
-
-        // Failure: vehicle fall into chasm
-        if (v.y > this.level.terrain.waterY + 0.5) {
-          v.crashed = true;
-          audio.stopEngine();
-          this.showModal(
-            "Structural Collapse!",
-            "Your bridge members buckled under dynamic live loading. Observe where stress turned red and add supporting triangulation.",
-            "Long members buckle under compression. Subdivide long struts into shorter triangles!"
-          );
-        }
-
-        // Success: crossed to the right bank
-        if (v.x > this.level.terrain.rightBank + 1.2 && !v.escaped) {
-          v.escaped = true;
-          audio.stopEngine();
-          audio.playVictory();
-          const cost = this.calculateCost();
-          const under = cost <= this.level.budget;
-          this.showModal(
-            "Bridge Certified!",
-            `Vehicle safely completed crossing.<br>Project Cost: <b>$${cost.toLocaleString()}</b> ${under ? '(Under Budget ★★★)' : '(Over Budget ★★☆)'}`,
-            "Ready for the next structural engineering challenge?"
-          );
-        }
-
-        audio.updateEngine(groundedCount > 0 ? 1 : 0.2);
-      }
+      // --- 3. Vehicle dynamics & load transfer ---
+      if (this.vehicle && !this.vehicle.crashed) this.stepVehicle(subDt, subSteps, g);
 
       this.maxStressObserved = Math.max(this.maxStressObserved, peakStress);
     }
 
-    const stressPct = Math.min(100, Math.round(this.maxStressObserved * 100));
-    const stressEl = document.getElementById('ui-stress');
-    stressEl.innerText = `${stressPct}%`;
-    stressEl.style.color = stressPct > 90 ? 'var(--danger)' : stressPct > 70 ? 'var(--warning)' : 'var(--success)';
+    this.measureSag();
+    this.setStressMeter(Math.min(100, Math.round(this.maxStressObserved * 100)));
+    this.updateAnalysisPanel();
+
+    // Nothing has happened for a long time — the vehicle is probably stuck.
+    if (this.vehicle && !this.vehicle.crashed && !this.vehicle.escaped &&
+        this.time - this.testStartTime > 40 && !this.resultShown) {
+      this.vehicle.crashed = true;
+      audio.stopEngine();
+      audio.playFailure();
+      this.showDebrief(false);
+    }
+  }
+
+  /** Serviceable deflection limit for this level, as a fraction of the span. */
+  sagLimit() {
+    const t = this.level.terrain;
+    return Math.max(0.12, (t.rightBank - t.leftBank) / SAG_SPAN_RATIO);
+  }
+
+  /** How far the roadway has dropped below where it was built. */
+  measureSag() {
+    let sag = 0;
+    for (const m of this.members) {
+      if (m.mat !== 'road' || m.broken) continue;
+      for (const n of [m.n1, m.n2]) {
+        if (n.fixed || n.restY === undefined) continue;
+        const d = n.y - n.restY;
+        if (d > sag) sag = d;
+      }
+    }
+    this.currentSag = sag;
+    if (sag > this.maxSag) this.maxSag = sag;
+
+    if (this.maxSag > this.sagLimit() * 0.75 && !this.sagWarned) {
+      this.sagWarned = true;
+      this.toast('warn', '📐', `The deck is sagging <b>${this.maxSag.toFixed(2)} m</b> (limit ${this.sagLimit().toFixed(2)} m). Nothing has snapped, but a bridge that flexes this much has still failed — add triangles to stiffen it.`, 5200);
+    }
+  }
+
+  breakMember(m, force) {
+    m.broken = true;
+    this.brokenCount++;
+    if (!this.firstFailure) {
+      this.firstFailure = {
+        mat: m.mat,
+        len: m.restLen,
+        type: force < 0 ? 'compression' : 'tension',
+        x: (m.n1.x + m.n2.x) / 2,
+        y: (m.n1.y + m.n2.y) / 2
+      };
+      this.slowmo = 1;
+      this.toast('bad', '💥', `A <b>${m.restLen.toFixed(1)} m ${MATERIALS[m.mat].name.toLowerCase()}</b> member failed in <b>${force < 0 ? 'compression' : 'tension'}</b>.`, 4000);
+    }
+    this.shake = Math.min(16, this.shake + 7);
+    this.flash = 0.5;
+    audio.playSnap();
+    this.emitDebris(m);
+  }
+
+  stepVehicle(subDt, subSteps, g) {
+    const v = this.vehicle;
+    const t = this.level.terrain;
+
+    v.x += v.vx * subDt;
+    v.vy += g * subDt;
+    v.y += v.vy * subDt;
+    v.wheelAngle += (v.vx * subDt) / v.wheelRadius;
+
+    const half = v.width * 0.4;
+    const wy = v.y + 0.35;
+    const rear = this.probeSupport(v.x - half, wy);
+    const front = this.probeSupport(v.x + half, wy);
+
+    v.rearY = rear ? rear.y : null;
+    v.frontY = front ? front.y : null;
+
+    const supports = [rear, front].filter(Boolean);
+    v.wasGrounded = v.grounded;
+    v.grounded = false;
+
+    if (supports.length) {
+      const highest = Math.min(...supports.map(s => s.y));
+      if (wy >= highest - 0.05) {
+        v.y = highest - 0.35;
+        if (v.vy > 2.5 && !v.wasGrounded) audio.playThud();
+        v.vy = 0;
+        v.grounded = true;
+      }
+
+      // Transfer the wheel loads into the deck joints they are resting on.
+      const wheelWeight = (v.mass * g) / 2;
+      const impulse = (wheelWeight * subDt) / subSteps;
+      for (const s of supports) {
+        if (!s.member) continue;
+        const m = s.member;
+        if (!m.n1.fixed) m.n1.y += (1 - s.t) * impulse * 0.003;
+        if (!m.n2.fixed) m.n2.y += s.t * impulse * 0.003;
+      }
+    }
+
+    // Body follows the slope between the two wheels.
+    if (v.rearY !== null && v.frontY !== null) {
+      const targetTilt = Math.atan2(v.frontY - v.rearY, v.width * 0.8);
+      v.tilt = lerp(v.tilt, targetTilt, 0.25);
+    } else {
+      v.tilt = lerp(v.tilt, 0, 0.05);
+    }
+
+    // --- Failure: fell into the chasm ---
+    if (v.y > t.waterY - 0.2 && !v.splashed) {
+      v.splashed = true;
+      audio.playSplash();
+      this.emitSplash(v.x, t.waterY);
+      this.shake = Math.min(18, this.shake + 8);
+    }
+    if (v.y > t.waterY + 0.5 && !v.crashed) {
+      v.crashed = true;
+      audio.stopEngine();
+      audio.playFailure();
+      this.showDebrief(false);
+    }
+
+    // --- Success: reached the far bank ---
+    if (v.x > t.rightBank + 1.6 && !v.escaped) {
+      v.escaped = true;
+      audio.stopEngine();
+      audio.playVictory();
+      this.emitConfetti();
+      this.showDebrief(true);
+    }
+
+    audio.updateEngine(v.grounded ? 1 : 0.2);
+  }
+
+  updateAnalysisPanel() {
+    const v = this.vehicle;
+    const t = this.level.terrain;
+    if (v) {
+      const total = (t.rightBank + 1.6) - v.startX;
+      const pct = clamp((v.x - v.startX) / total, 0, 1) * 100;
+      document.getElementById('an-progress').innerText = Math.round(pct) + '%';
+      const bar = document.getElementById('an-progress-bar');
+      bar.style.width = pct + '%';
+      bar.style.background = v.crashed ? 'var(--danger)' : v.escaped ? 'var(--success)' : 'var(--accent)';
+    }
+
+    const sagEl = document.getElementById('an-sag');
+    const sag = this.maxSag || 0;
+    const limit = this.sagLimit();
+    sagEl.innerText = sag.toFixed(2) + ' m';
+    sagEl.style.color = sag >= limit ? 'var(--danger)' : sag >= limit * 0.55 ? 'var(--warning)' : 'var(--success)';
+
+    const live = this.members.filter(m => !m.broken);
+    const atRisk = live.filter(m => m.stress >= RISK_THRESHOLD);
+    const riskEl = document.getElementById('an-risk');
+    riskEl.innerText = atRisk.length;
+    riskEl.style.color = atRisk.length ? 'var(--warning)' : 'var(--text)';
+
+    const brokenEl = document.getElementById('an-broken');
+    brokenEl.innerText = this.brokenCount;
+    brokenEl.style.color = this.brokenCount ? 'var(--danger)' : 'var(--text)';
+
+    const worst = live.slice().sort((a, b) => b.stress - a.stress).slice(0, 3);
+    const html = worst.length
+      ? `<div class="hud-title" style="margin-bottom:5px;">Hardest working members</div>` + worst.map(m => {
+          const pct = Math.round(m.stress * 100);
+          const col = stressColor(m.force, m.stress);
+          return `<div class="worst-row">
+              <div class="worst-dot" style="background:${col}"></div>
+              <div class="worst-name">${MATERIALS[m.mat].short} ${m.restLen.toFixed(1)}m · ${m.force < 0 ? 'comp' : 'tens'}</div>
+              <div class="worst-pct" style="color:${col}">${pct}%</div>
+            </div>`;
+        }).join('')
+      : '';
+    const el = document.getElementById('an-worst');
+    if (el.dataset.sig !== html) { el.dataset.sig = html; el.innerHTML = html; }
+  }
+
+  // ==========================================================
+  //  PARTICLE EFFECTS
+  // ==========================================================
+  addParticle(p) {
+    if (this.particles.length > 420) this.particles.shift();
+    this.particles.push(p);
   }
 
   emitDebris(member) {
     const mx = (member.n1.x + member.n2.x) * 0.5;
     const my = (member.n1.y + member.n2.y) * 0.5;
-    for (let i = 0; i < 10; i++) {
-      this.particles.push({
-        x: mx, y: my,
-        vx: (Math.random() - 0.5) * 5,
-        vy: (Math.random() - 0.8) * 5,
-        color: MATERIALS[member.mat].color,
-        life: 1.0
+    const color = MATERIALS[member.mat].color;
+    const len = member.restLen;
+
+    // Splinters / fragments thrown along the member axis
+    for (let i = 0; i < 14; i++) {
+      const along = (Math.random() - 0.5) * len;
+      const ux = (member.n2.x - member.n1.x) / (len || 1);
+      const uy = (member.n2.y - member.n1.y) / (len || 1);
+      this.addParticle({
+        kind: 'debris',
+        x: mx + ux * along, y: my + uy * along,
+        vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.85) * 6,
+        rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 14,
+        size: 2 + Math.random() * 4,
+        color, life: 1, decay: 0.5 + Math.random() * 0.4
+      });
+    }
+    // Dust puff at the break
+    for (let i = 0; i < 7; i++) {
+      this.addParticle({
+        kind: 'dust',
+        x: mx + (Math.random() - 0.5) * 0.4, y: my + (Math.random() - 0.5) * 0.4,
+        vx: (Math.random() - 0.5) * 1.6, vy: -Math.random() * 1.2,
+        size: 6 + Math.random() * 14,
+        color: '#94a3b8', life: 1, decay: 0.85
+      });
+    }
+    // Steel throws sparks
+    if (member.mat === 'steel') {
+      for (let i = 0; i < 10; i++) {
+        this.addParticle({
+          kind: 'spark',
+          x: mx, y: my,
+          vx: (Math.random() - 0.5) * 11, vy: (Math.random() - 0.5) * 11,
+          size: 1.5 + Math.random() * 2,
+          color: '#fde68a', life: 1, decay: 2.2
+        });
+      }
+    }
+  }
+
+  emitSplash(x, y) {
+    for (let i = 0; i < 26; i++) {
+      this.addParticle({
+        kind: 'splash',
+        x: x + (Math.random() - 0.5) * 0.9, y,
+        vx: (Math.random() - 0.5) * 7, vy: -1.5 - Math.random() * 6,
+        size: 2 + Math.random() * 3.5,
+        color: Math.random() > 0.4 ? '#7dd3fc' : '#e0f2fe',
+        life: 1, decay: 0.7
       });
     }
   }
 
-  // --- RENDERING PIPELINE ---
-  render() {
-    const ctx = this.ctx;
-    ctx.clearRect(0, 0, this.canvas.width / this.dpr, this.canvas.height / this.dpr);
-
-    this.drawLandscape(ctx);
-    this.drawGrid(ctx);
-    this.drawMembers(ctx);
-    this.drawGhostStrut(ctx);
-    this.drawNodes(ctx);
-    this.drawVehicle(ctx);
-    this.drawParticles(ctx);
+  emitConfetti() {
+    const t = this.level.terrain;
+    const cols = ['#38bdf8', '#22c55e', '#f59e0b', '#a855f7', '#f8fafc'];
+    for (let i = 0; i < 60; i++) {
+      this.addParticle({
+        kind: 'debris',
+        x: t.rightBank + 1 + (Math.random() - 0.5) * 3,
+        y: t.groundY - 3 - Math.random() * 3,
+        vx: (Math.random() - 0.5) * 5, vy: -Math.random() * 3,
+        rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 18,
+        size: 3 + Math.random() * 3,
+        color: cols[i % cols.length],
+        life: 1, decay: 0.35
+      });
+    }
   }
 
-  drawLandscape(ctx) {
+  emitExhaust(x, y) {
+    this.addParticle({
+      kind: 'dust',
+      x, y,
+      vx: -0.6 - Math.random() * 0.5, vy: -0.35 - Math.random() * 0.4,
+      size: 3 + Math.random() * 5,
+      color: '#64748b', life: 0.55, decay: 1.1
+    });
+  }
+
+  updateParticles(dt) {
+    const waterY = this.level.terrain.waterY;
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= p.decay * dt;
+      if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if (p.rot !== undefined) p.rot += p.vr * dt;
+
+      if (p.kind === 'debris') { p.vy += 12 * dt; p.vx *= 0.99; }
+      else if (p.kind === 'dust') { p.vy -= 0.5 * dt; p.vx *= 0.96; p.size += 14 * dt; }
+      else if (p.kind === 'spark') { p.vy += 6 * dt; p.vx *= 0.94; p.vy *= 0.94; }
+      else if (p.kind === 'splash') { p.vy += 14 * dt; }
+
+      // Debris hitting the water makes its own little splash
+      if (p.kind === 'debris' && p.y > waterY && !p.splashed) {
+        p.splashed = true;
+        p.life = Math.min(p.life, 0.25);
+        for (let k = 0; k < 3; k++) {
+          this.addParticle({
+            kind: 'splash', x: p.x, y: waterY,
+            vx: (Math.random() - 0.5) * 2.5, vy: -1 - Math.random() * 2.5,
+            size: 1.5 + Math.random() * 2, color: '#7dd3fc', life: 1, decay: 1.3
+          });
+        }
+      }
+    }
+  }
+
+  // ==========================================================
+  //  RENDERING — ENVIRONMENT
+  // ==========================================================
+  drawSky(ctx) {
+    const w = this.viewW, h = this.viewH;
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#0a1428');
+    sky.addColorStop(0.45, '#132339');
+    sky.addColorStop(0.8, '#1d3149');
+    sky.addColorStop(1, '#24405c');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+
+    // Low sun glow behind the far hills
+    const glowX = w * 0.72, glowY = this.sy(this.level.terrain.groundY - 1.5);
+    const glow = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, w * 0.45);
+    glow.addColorStop(0, 'rgba(251, 191, 130, 0.16)');
+    glow.addColorStop(0.4, 'rgba(190, 130, 110, 0.07)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+
+    // Stars, fading out toward the horizon
+    ctx.fillStyle = '#e2e8f0';
+    for (let i = 0; i < 46; i++) {
+      const sxp = hash1(i * 1.7) * w;
+      const syp = hash1(i * 4.3) * h * 0.42;
+      const tw = 0.35 + 0.35 * Math.sin(this.time * 1.6 + i);
+      ctx.globalAlpha = tw * (1 - syp / (h * 0.5)) * 0.75;
+      const s = hash1(i * 9.1) > 0.85 ? 1.8 : 1.1;
+      ctx.fillRect(sxp, syp, s, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  drawClouds(ctx) {
+    ctx.save();
+    for (const c of this.clouds) {
+      c.x += c.speed * 0.016;
+      if (this.sx(c.x) > this.viewW + 220) c.x = this.toWorld(-220, 0).x;
+      const p = this.toScreen(c.x, c.y);
+      const s = c.scale * this.PPM * 0.04;
+      ctx.fillStyle = 'rgba(148, 178, 214, 0.045)';
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, 46 * s, 12 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x - 26 * s, p.y + 4 * s, 30 * s, 9 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x + 30 * s, p.y + 3 * s, 26 * s, 8 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** Layered parallax hills behind the gorge. */
+  drawHills(ctx) {
+    const w = this.viewW;
+    const baseY = this.sy(this.level.terrain.groundY);
+    const layers = [
+      { amp: 46, freq: 0.0042, off: 0,   y: baseY - 40, color: '#16273c' },
+      { amp: 34, freq: 0.0068, off: 120, y: baseY - 16, color: '#1a2f47' },
+      { amp: 22, freq: 0.0105, off: 340, y: baseY + 4,  color: '#1f3852' }
+    ];
+    for (const L of layers) {
+      ctx.fillStyle = L.color;
+      ctx.beginPath();
+      ctx.moveTo(0, this.viewH);
+      for (let x = 0; x <= w; x += 8) {
+        const n = noise1((x + L.off) * L.freq * 12) * 2 - 1;
+        const n2 = noise1((x + L.off) * L.freq * 34) * 2 - 1;
+        ctx.lineTo(x, L.y + n * L.amp + n2 * L.amp * 0.28);
+      }
+      ctx.lineTo(w, this.viewH);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  /** The gorge is far away and deep — darken it so it reads as a void, not a panel. */
+  drawGorgeDepth(ctx) {
     const t = this.level.terrain;
-    const w = this.canvas.width / this.dpr;
-    const h = this.canvas.height / this.dpr;
+    const topY = this.sy(t.groundY - 2.2);
+    const g = ctx.createLinearGradient(0, topY, 0, this.viewH);
+    g.addColorStop(0, 'rgba(5, 9, 18, 0)');
+    g.addColorStop(0.35, 'rgba(5, 9, 18, 0.55)');
+    g.addColorStop(1, 'rgba(3, 6, 13, 0.92)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, topY, this.viewW, this.viewH - topY);
 
-    const leftSc = this.toScreen(t.leftBank, t.groundY);
-    const rightSc = this.toScreen(t.rightBank, t.groundY);
-    const waterSc = this.toScreen(0, t.waterY);
-
-    // Water reservoir
-    ctx.fillStyle = '#0284c733';
-    ctx.fillRect(0, waterSc.y, w, h - waterSc.y);
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillRect(0, waterSc.y, w, 2);
-
-    // Bedrock cliffs
-    ctx.fillStyle = '#131d31';
-    // Left Cliff
+    // Mist drifting just above the water
+    const mistY = this.sy(t.waterY);
+    const mist = ctx.createLinearGradient(0, mistY - 70, 0, mistY + 6);
+    mist.addColorStop(0, 'rgba(148, 178, 214, 0)');
+    mist.addColorStop(1, 'rgba(148, 178, 214, 0.13)');
+    ctx.fillStyle = mist;
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(0, leftSc.y);
-    ctx.lineTo(leftSc.x, leftSc.y);
-    ctx.lineTo(leftSc.x - 24, h);
-    ctx.lineTo(0, h);
+    for (let x = 0; x <= this.viewW; x += 10) {
+      const y = mistY - 46 + Math.sin(x * 0.012 + this.time * 0.35) * 12 + Math.sin(x * 0.031 - this.time * 0.2) * 6;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.lineTo(this.viewW, mistY + 6);
+    ctx.lineTo(0, mistY + 6);
+    ctx.closePath();
     ctx.fill();
+    ctx.restore();
+  }
 
-    // Right Cliff
+  drawWater(ctx) {
+    const t = this.level.terrain;
+    const w = this.viewW, h = this.viewH;
+    const surfaceY = this.sy(t.waterY);
+
+    const grad = ctx.createLinearGradient(0, surfaceY, 0, h);
+    grad.addColorStop(0, 'rgba(56, 189, 248, 0.22)');
+    grad.addColorStop(0.3, 'rgba(14, 100, 160, 0.34)');
+    grad.addColorStop(1, 'rgba(4, 22, 46, 0.85)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, surfaceY, w, h - surfaceY);
+
+    // Reflection of the structure, squashed and rippled
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(w, rightSc.y);
-    ctx.lineTo(rightSc.x, rightSc.y);
-    ctx.lineTo(rightSc.x + 24, h);
-    ctx.lineTo(w, h);
-    ctx.fill();
+    ctx.rect(0, surfaceY, w, h - surfaceY);
+    ctx.clip();
+    ctx.globalAlpha = 0.16;
+    ctx.translate(0, surfaceY * 2);
+    ctx.scale(1, -0.85);
+    ctx.filter = 'blur(1px)';
+    this.drawMembers(ctx, true);
+    ctx.filter = 'none';
+    ctx.restore();
+    ctx.globalAlpha = 1;
 
-    ctx.strokeStyle = '#233350';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    // Animated surface: three sine layers
+    for (let layer = 0; layer < 3; layer++) {
+      const amp = 2.4 - layer * 0.6;
+      const speed = 0.9 + layer * 0.45;
+      const wavelength = 90 + layer * 55;
+      ctx.beginPath();
+      ctx.moveTo(0, surfaceY + layer * 3);
+      for (let x = 0; x <= w; x += 6) {
+        const y = surfaceY + layer * 3.2 +
+                  Math.sin((x / wavelength) + this.time * speed) * amp +
+                  Math.sin((x / (wavelength * 0.42)) - this.time * speed * 1.4) * amp * 0.4;
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = layer === 0 ? 'rgba(125, 211, 252, 0.55)' : `rgba(125, 211, 252, ${0.16 - layer * 0.04})`;
+      ctx.lineWidth = layer === 0 ? 2 : 1.4;
+      ctx.stroke();
+    }
+
+    // Specular glints
+    ctx.fillStyle = 'rgba(186, 230, 253, 0.30)';
+    for (let i = 0; i < 22; i++) {
+      const gx = hash1(i * 2.3) * w;
+      const gy = surfaceY + 8 + hash1(i * 5.1) * (h - surfaceY) * 0.55;
+      const len = 8 + hash1(i * 3.7) * 26;
+      const a = 0.5 + 0.5 * Math.sin(this.time * 1.5 + i * 2.1);
+      ctx.globalAlpha = a * 0.3 * (1 - (gy - surfaceY) / Math.max(1, h - surfaceY));
+      ctx.fillRect(gx, gy, len, 1.4);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Jagged deterministic cliff profile — same shape every frame. */
+  cliffEdgeX(side, y, baseX) {
+    const n = noise1(y * 1.7 + (side === 'left' ? 0 : 91.3));
+    const n2 = noise1(y * 5.2 + (side === 'left' ? 12 : 44));
+    const jag = (n - 0.5) * 0.85 + (n2 - 0.5) * 0.3;
+    return baseX + (side === 'left' ? -0.15 + jag * -0.55 : 0.15 + jag * 0.55);
+  }
+
+  drawCliffs(ctx) {
+    const t = this.level.terrain;
+    const h = this.viewH, w = this.viewW;
+    const bottomWorld = this.toWorld(0, h).y + 1;
+
+    for (const side of ['left', 'right']) {
+      const baseX = side === 'left' ? t.leftBank : t.rightBank;
+      const outerX = side === 'left' ? 0 : w;
+
+      ctx.beginPath();
+      ctx.moveTo(outerX, this.sy(t.groundY));
+      ctx.lineTo(this.sx(baseX), this.sy(t.groundY));
+      for (let y = t.groundY; y <= bottomWorld; y += 0.28) {
+        ctx.lineTo(this.sx(this.cliffEdgeX(side, y, baseX)), this.sy(y));
+      }
+      ctx.lineTo(outerX, h);
+      ctx.closePath();
+
+      ctx.save();
+      ctx.clip();
+
+      // Rock body
+      const rock = ctx.createLinearGradient(0, this.sy(t.groundY), 0, h);
+      rock.addColorStop(0, '#3a4d6b');
+      rock.addColorStop(0.3, '#2a3b56');
+      rock.addColorStop(1, '#16243a');
+      ctx.fillStyle = rock;
+      ctx.fillRect(0, 0, w, h);
+
+      // Sedimentary strata
+      for (let i = 0; i < 22; i++) {
+        const yw = t.groundY + 0.55 + i * 0.62 + noise1(i * 3.3 + (side === 'left' ? 0 : 50)) * 0.3;
+        if (yw > bottomWorld) break;
+        const sh = 3 + hash1(i * 7.7) * 7;
+        ctx.fillStyle = i % 3 === 0 ? 'rgba(90, 116, 150, 0.16)' : 'rgba(10, 17, 30, 0.28)';
+        ctx.fillRect(0, this.sy(yw), w, sh);
+      }
+
+      // Speckled mineral texture
+      for (let i = 0; i < 90; i++) {
+        const px = hash1(i * 1.31 + (side === 'left' ? 0 : 7)) * w;
+        const py = this.sy(t.groundY) + hash1(i * 2.77 + (side === 'left' ? 3 : 11)) * (h - this.sy(t.groundY));
+        ctx.fillStyle = hash1(i * 5.5) > 0.6 ? 'rgba(148, 178, 214, 0.09)' : 'rgba(0, 0, 0, 0.16)';
+        ctx.fillRect(px, py, 2, 2);
+      }
+
+      // Shadow along the gorge face
+      const faceGrad = ctx.createLinearGradient(
+        this.sx(side === 'left' ? baseX - 1.6 : baseX + 1.6), 0, this.sx(baseX), 0);
+      faceGrad.addColorStop(0, 'rgba(0,0,0,0)');
+      faceGrad.addColorStop(1, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = faceGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.restore();
+
+      // Cliff outline
+      ctx.strokeStyle = '#3d5675';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Grass / soil cap on the plateau
+      const capY = this.sy(t.groundY);
+      const capX0 = side === 'left' ? 0 : this.sx(baseX);
+      const capW = side === 'left' ? this.sx(baseX) : w - this.sx(baseX);
+      ctx.fillStyle = '#3f5d3a';
+      ctx.fillRect(capX0, capY - 5, capW, 5);
+      ctx.fillStyle = '#4d7044';
+      ctx.fillRect(capX0, capY - 5, capW, 2);
+
+      // Grass tufts
+      ctx.strokeStyle = '#5c8450';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let i = 0; i < 40; i++) {
+        const gx = capX0 + hash1(i * 3.9 + (side === 'left' ? 0 : 61)) * capW;
+        const gh = 3 + hash1(i * 6.1) * 5;
+        const sway = Math.sin(this.time * 1.1 + i) * 1.2;
+        ctx.moveTo(gx, capY - 5);
+        ctx.lineTo(gx + sway, capY - 5 - gh);
+      }
+      ctx.stroke();
+    }
   }
 
   drawGrid(ctx) {
     if (this.mode === 'test') return;
-    ctx.fillStyle = '#23335066';
     const min = this.toWorld(0, 0);
-    const max = this.toWorld(this.canvas.width / this.dpr, this.canvas.height / this.dpr);
+    const max = this.toWorld(this.viewW, this.viewH);
 
-    for (let x = Math.floor(min.x); x <= Math.ceil(max.x); x += 0.5) {
-      for (let y = Math.floor(min.y); y <= Math.ceil(max.y); y += 0.5) {
-        const sc = this.toScreen(x, y);
-        ctx.fillRect(sc.x - 1, sc.y - 1, 2, 2);
+    // Metre lines
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = Math.floor(min.x); x <= Math.ceil(max.x); x++) {
+      ctx.moveTo(this.sx(x), 0); ctx.lineTo(this.sx(x), this.viewH);
+    }
+    for (let y = Math.floor(min.y); y <= Math.ceil(max.y); y++) {
+      ctx.moveTo(0, this.sy(y)); ctx.lineTo(this.viewW, this.sy(y));
+    }
+    ctx.stroke();
+
+    // Half-metre snap dots
+    ctx.fillStyle = 'rgba(100, 130, 175, 0.30)';
+    for (let x = Math.floor(min.x); x <= Math.ceil(max.x); x += GRID_SNAP) {
+      for (let y = Math.floor(min.y); y <= Math.ceil(max.y); y += GRID_SNAP) {
+        ctx.fillRect(this.sx(x) - 1, this.sy(y) - 1, 1.6, 1.6);
       }
+    }
+
+    // Highlight the snap point the cursor will use
+    if (this.mouseOnCanvas && this.activeTool === 'draw') {
+      const s = this.snapGrid(this.mouseWorld.x, this.mouseWorld.y);
+      const p = this.toScreen(s.x, s.y);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
 
-  drawMembers(ctx) {
+  // ==========================================================
+  //  RENDERING — STRUCTURE
+  // ==========================================================
+  memberHalfHeight(mat) {
+    const sc = this.PPM / 40;
+    return (mat === 'road' ? 5.0 : mat === 'steel' ? 3.6 : mat === 'wood' ? 3.0 : 1.5) * sc;
+  }
+
+  drawMembers(ctx, reflection = false) {
     for (const m of this.members) {
       if (m.broken) continue;
-      const p1 = this.toScreen(m.n1.x, m.n1.y);
-      const p2 = this.toScreen(m.n2.x, m.n2.y);
-      const mat = MATERIALS[m.mat];
-
-      ctx.beginPath();
-
-      // Slack cable visualization
-      if (mat.isCable && m.force <= 0 && this.mode === 'test') {
-        const midX = (p1.x + p2.x) * 0.5;
-        const midY = (p1.y + p2.y) * 0.5 + 8; // Droop
-        ctx.moveTo(p1.x, p1.y);
-        ctx.quadraticCurveTo(midX, midY, p2.x, p2.y);
-        ctx.strokeStyle = '#64748b88';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        continue;
-      }
-
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-
-      if (this.mode === 'test') {
-        const s = Math.min(1.0, m.stress);
-        if (m.force < -50) {
-          // Compression: Red spectrum
-          ctx.strokeStyle = `rgb(${Math.floor(220 + 35 * s)}, ${Math.floor(90 * (1 - s))}, ${Math.floor(90 * (1 - s))})`;
-        } else if (m.force > 50) {
-          // Tension: Blue spectrum
-          ctx.strokeStyle = `rgb(${Math.floor(50 * (1 - s))}, ${Math.floor(180 * (1 - s) + 40)}, ${Math.floor(220 + 35 * s)})`;
-        } else {
-          ctx.strokeStyle = '#64748b';
-        }
-        ctx.lineWidth = m.mat === 'road' ? 7 : m.mat === 'steel' ? 5 : 3.5;
-      } else {
-        ctx.strokeStyle = mat.color;
-        ctx.lineWidth = m.mat === 'road' ? 6 : m.mat === 'steel' ? 4.5 : m.mat === 'cable' ? 2 : 3.5;
-      }
-
-      ctx.lineCap = 'round';
-      ctx.stroke();
-
-      // Road dash overlay
-      if (m.mat === 'road') {
-        ctx.strokeStyle = '#090d16';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      // Force Vector Overlay
-      if (this.showVectors && this.mode === 'test' && Math.abs(m.force) > 80) {
-        this.drawVectorArrows(ctx, p1, p2, m.force);
-      }
+      this.drawMember(ctx, m, reflection);
     }
+    if (!reflection && this.mode === 'test') this.drawStressLabels(ctx);
+  }
+
+  drawMember(ctx, m, reflection) {
+    const p1 = this.toScreen(m.n1.x, m.n1.y);
+    const p2 = this.toScreen(m.n2.x, m.n2.y);
+    const mat = MATERIALS[m.mat];
+    const sc = this.PPM / 40;
+    const test = this.mode === 'test';
+    const s = clamp(m.stress, 0, 1);
+    const hovered = !reflection && this.hoverMember === m;
+
+    // --- Slack cable: draw the catenary droop instead of a straight line ---
+    if (mat.isCable && test && m.force <= 0) {
+      const midX = (p1.x + p2.x) * 0.5;
+      const midY = (p1.y + p2.y) * 0.5 + 10 * sc;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.quadraticCurveTo(midX, midY, p2.x, p2.y);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+      ctx.lineWidth = 2 * sc;
+      ctx.setLineDash([]);
+      ctx.stroke();
+      return;
+    }
+
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const lenPx = Math.hypot(dx, dy);
+    if (lenPx < 0.5) return;
+    const half = this.memberHalfHeight(m.mat);
+    const base = test ? stressColor(m.force, s) : mat.color;
+
+    ctx.save();
+    ctx.translate(p1.x, p1.y);
+    ctx.rotate(Math.atan2(dy, dx));
+
+    // Glow as a member approaches its limit
+    if (test && s > 0.5 && !reflection) {
+      const pulse = s > 0.85 ? (0.6 + 0.4 * Math.sin(this.time * 14 + m.warnPhase)) : 1;
+      ctx.shadowColor = stressColor(m.force, s, 0.85);
+      ctx.shadowBlur = lerp(3, 26, (s - 0.5) / 0.5) * pulse;
+    }
+
+    if (mat.isCable) {
+      ctx.strokeStyle = base;
+      ctx.lineWidth = half * 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(lenPx, 0);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = Math.max(0.6, half * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(1, -half * 0.35); ctx.lineTo(lenPx - 1, -half * 0.35);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    // Body
+    ctx.fillStyle = base;
+    ctx.fillRect(0, -half, lenPx, half * 2);
+    ctx.shadowBlur = 0;
+
+    // Cylindrical shading so members read as solid objects
+    const shade = ctx.createLinearGradient(0, -half, 0, half);
+    shade.addColorStop(0, 'rgba(255,255,255,0.30)');
+    shade.addColorStop(0.42, 'rgba(255,255,255,0.04)');
+    shade.addColorStop(0.62, 'rgba(0,0,0,0.10)');
+    shade.addColorStop(1, 'rgba(0,0,0,0.40)');
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, -half, lenPx, half * 2);
+
+    // --- Material texture ---
+    if (m.mat === 'wood') {
+      ctx.strokeStyle = 'rgba(69, 26, 3, 0.34)';
+      ctx.lineWidth = Math.max(0.6, 0.9 * sc);
+      ctx.beginPath();
+      for (let i = 0; i < 2; i++) {
+        const gy = -half + half * (0.7 + i * 1.1);
+        ctx.moveTo(2, gy);
+        for (let x = 2; x < lenPx; x += 6) ctx.lineTo(x, gy + Math.sin(x * 0.22 + i * 2 + m.warnPhase) * half * 0.16);
+      }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(69, 26, 3, 0.4)';
+      ctx.fillRect(0, -half, 1.6 * sc, half * 2);
+      ctx.fillRect(lenPx - 1.6 * sc, -half, 1.6 * sc, half * 2);
+    } else if (m.mat === 'steel') {
+      // Flange edges + rivets
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      ctx.fillRect(0, -half, lenPx, Math.max(0.8, half * 0.28));
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.fillRect(0, half - Math.max(0.8, half * 0.28), lenPx, Math.max(0.8, half * 0.28));
+      const step = Math.max(9, 13 * sc);
+      ctx.fillStyle = 'rgba(0,0,0,0.30)';
+      for (let x = step * 0.5; x < lenPx - 2; x += step) {
+        ctx.beginPath();
+        ctx.arc(x, 0, Math.max(0.7, half * 0.22), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (m.mat === 'road') {
+      // Kerbs and centre line
+      ctx.fillStyle = 'rgba(0,0,0,0.34)';
+      ctx.fillRect(0, -half, lenPx, Math.max(1, half * 0.24));
+      ctx.fillRect(0, half - Math.max(1, half * 0.24), lenPx, Math.max(1, half * 0.24));
+      ctx.strokeStyle = 'rgba(250, 204, 21, 0.65)';
+      ctx.lineWidth = Math.max(1, 1.4 * sc);
+      ctx.setLineDash([5 * sc, 5 * sc]);
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(lenPx, 0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // In test mode keep a thin stripe of the true material colour for identification
+    if (test) {
+      ctx.fillStyle = mat.color;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(0, half - Math.max(1, half * 0.2), lenPx, Math.max(1, half * 0.2));
+      ctx.globalAlpha = 1;
+    }
+
+    // Outline / hover highlight
+    ctx.strokeStyle = hovered ? '#ffffff' : 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = hovered ? 2 : 1;
+    ctx.strokeRect(0, -half, lenPx, half * 2);
+
+    ctx.restore();
+
+    if (this.showVectors && test && Math.abs(m.force) > 80 && !reflection) {
+      this.drawVectorArrows(ctx, p1, p2, m.force);
+    }
+  }
+
+  /** Percentage chips on the members doing the most work. */
+  drawStressLabels(ctx) {
+    const busy = this.members
+      .filter(m => !m.broken && m.stress > 0.68)
+      .sort((a, b) => b.stress - a.stress)
+      .slice(0, 6);
+
+    ctx.font = `600 ${Math.max(9, 10 * this.PPM / 40)}px ui-monospace, Menlo, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (const m of busy) {
+      const mx = this.sx((m.n1.x + m.n2.x) / 2);
+      const my = this.sy((m.n1.y + m.n2.y) / 2);
+      const pct = Math.round(m.stress * 100);
+      const col = stressColor(m.force, m.stress);
+      const label = `${pct}%`;
+      const w = ctx.measureText(label).width + 10;
+      const h = 15;
+
+      ctx.globalAlpha = m.stress > 0.85 ? 0.75 + 0.25 * Math.sin(this.time * 12 + m.warnPhase) : 0.92;
+      ctx.fillStyle = 'rgba(6, 11, 20, 0.88)';
+      ctx.beginPath();
+      ctx.roundRect(mx - w / 2, my - h / 2 - 14, w, h, 4);
+      ctx.fill();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.fillText(label, mx, my - 14);
+      ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
   }
 
   drawVectorArrows(ctx, p1, p2, force) {
     const mx = (p1.x + p2.x) * 0.5;
     const my = (p1.y + p2.y) * 0.5;
     const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-    const len = 10;
+    const len = 11 * (this.PPM / 40);
 
     ctx.save();
     ctx.translate(mx, my);
     ctx.rotate(angle);
-    ctx.strokeStyle = force > 0 ? '#38bdf8' : '#ef4444';
+    ctx.strokeStyle = force > 0 ? '#7dd3fc' : '#fca5a5';
     ctx.lineWidth = 2;
-
+    ctx.lineCap = 'round';
+    ctx.beginPath();
     if (force > 0) {
-      // Inward pull (Tension)
-      ctx.beginPath();
-      ctx.moveTo(-len, -3); ctx.lineTo(-len + 4, 0); ctx.lineTo(-len, 3);
-      ctx.moveTo(len, -3);  ctx.lineTo(len - 4, 0);  ctx.lineTo(len, 3);
-      ctx.stroke();
+      // Pulled inward from both ends — tension
+      ctx.moveTo(-len, -3.5); ctx.lineTo(-len + 5, 0); ctx.lineTo(-len, 3.5);
+      ctx.moveTo(len, -3.5);  ctx.lineTo(len - 5, 0);  ctx.lineTo(len, 3.5);
     } else {
-      // Outward push (Compression)
-      ctx.beginPath();
-      ctx.moveTo(-len + 4, -3); ctx.lineTo(-len, 0); ctx.lineTo(-len + 4, 3);
-      ctx.moveTo(len - 4, -3);  ctx.lineTo(len, 0);  ctx.lineTo(len - 4, 3);
-      ctx.stroke();
+      // Pushed outward at both ends — compression
+      ctx.moveTo(-len + 5, -3.5); ctx.lineTo(-len, 0); ctx.lineTo(-len + 5, 3.5);
+      ctx.moveTo(len - 5, -3.5);  ctx.lineTo(len, 0);  ctx.lineTo(len - 5, 3.5);
     }
+    ctx.stroke();
     ctx.restore();
+  }
+
+  drawNodes(ctx) {
+    const sc = this.PPM / 40;
+
+    for (const n of this.nodes) {
+      const p = this.toScreen(n.x, n.y);
+
+      if (n.fixed) {
+        // Anchor: hatched foundation block bolted into the rock
+        const w = 15 * sc, h = 11 * sc;
+        ctx.fillStyle = '#0b1220';
+        ctx.fillRect(p.x - w / 2, p.y - h / 2, w, h);
+        ctx.strokeStyle = '#78716c';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = -w / 2; i < w / 2 + h; i += 4 * sc) {
+          ctx.moveTo(p.x + i, p.y + h / 2);
+          ctx.lineTo(p.x + i - h, p.y - h / 2);
+        }
+        ctx.stroke();
+        ctx.strokeStyle = '#a8a29e';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(p.x - w / 2, p.y - h / 2, w, h);
+
+        const r = 6 * sc;
+        const g = ctx.createRadialGradient(p.x - r * 0.35, p.y - r * 0.35, r * 0.15, p.x, p.y, r);
+        g.addColorStop(0, '#fde68a');
+        g.addColorStop(1, '#ca8a04');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#713f12';
+        ctx.lineWidth = 2 * sc;
+        ctx.stroke();
+      } else {
+        // Free joint: bolted gusset plate
+        const r = 5 * sc;
+        const g = ctx.createRadialGradient(p.x - r * 0.4, p.y - r * 0.4, r * 0.1, p.x, p.y, r);
+        g.addColorStop(0, '#ffffff');
+        g.addColorStop(0.6, '#cbd5e1');
+        g.addColorStop(1, '#64748b');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#0b1220';
+        ctx.lineWidth = 1.6 * sc;
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+        for (let i = 0; i < 3; i++) {
+          const a = this.time * 0 + i * 2.094;
+          ctx.beginPath();
+          ctx.arc(p.x + Math.cos(a) * r * 0.5, p.y + Math.sin(a) * r * 0.5, Math.max(0.6, r * 0.16), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Hover ring
+      if (this.hoverNode === n && this.mode !== 'test') {
+        ctx.strokeStyle = this.activeTool === 'erase' ? '#ef4444' : '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, (n.fixed ? 11 : 9) * sc + Math.sin(this.time * 5) * 1.2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
   }
 
   drawGhostStrut(ctx) {
@@ -1281,111 +3252,345 @@ class TrussCraftApp {
     const p1 = this.toScreen(this.dragStartNode.x, this.dragStartNode.y);
     const p2 = this.toScreen(snap.x, snap.y);
     const len = Math.hypot(snap.x - this.dragStartNode.x, snap.y - this.dragStartNode.y);
-    const valid = len <= MAX_STRUT_LENGTH && len >= 0.5;
+    const tooLong = len > MAX_STRUT_LENGTH;
+    const tooShort = len < MIN_STRUT_LENGTH;
+    const valid = !tooLong && !tooShort;
+    const mat = MATERIALS[this.activeMat];
+    const cost = Math.round(len * mat.cost);
+    const wouldExceed = this.calculateCost() + cost > this.level.budget;
 
+    // Reach limit ring, so the length rule is visible rather than just enforced
+    ctx.strokeStyle = tooLong ? 'rgba(239, 68, 68, 0.45)' : 'rgba(56, 189, 248, 0.18)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(p1.x, p1.y, MAX_STRUT_LENGTH * this.PPM, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = valid ? mat.color : '#ef4444';
+    ctx.lineWidth = valid ? this.memberHalfHeight(this.activeMat) * 2 : 3;
+    ctx.globalAlpha = valid ? 0.55 : 0.9;
+    ctx.setLineDash(valid ? [] : [6, 5]);
+    ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(p1.x, p1.y);
     ctx.lineTo(p2.x, p2.y);
-    ctx.strokeStyle = valid ? MATERIALS[this.activeMat].color : 'var(--danger)';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([5, 5]);
     ctx.stroke();
     ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
 
-    // Length readout tag
+    // Readout chip: length, price, and why it is refused
     const mx = (p1.x + p2.x) * 0.5;
     const my = (p1.y + p2.y) * 0.5;
-    ctx.fillStyle = valid ? '#131d31' : '#dc2626';
-    ctx.fillRect(mx - 24, my - 10, 48, 20);
+    const label = tooLong ? `${len.toFixed(1)} m — too long (max ${MAX_STRUT_LENGTH})`
+                : tooShort ? 'too short'
+                : `${len.toFixed(1)} m · $${cost.toLocaleString()}`;
+    ctx.font = `600 11px ui-monospace, Menlo, monospace`;
+    const w = ctx.measureText(label).width + 14;
+
+    ctx.fillStyle = valid ? (wouldExceed ? 'rgba(120, 53, 15, 0.95)' : 'rgba(10, 17, 32, 0.94)') : 'rgba(127, 29, 29, 0.95)';
+    ctx.beginPath();
+    ctx.roundRect(mx - w / 2, my - 26, w, 19, 5);
+    ctx.fill();
+    ctx.strokeStyle = valid ? (wouldExceed ? '#f59e0b' : mat.color) : '#ef4444';
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.fillStyle = '#f8fafc';
-    ctx.font = '11px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`${len.toFixed(1)}m`, mx, my + 4);
-  }
-
-  drawNodes(ctx) {
-    for (const n of this.nodes) {
-      const sc = this.toScreen(n.x, n.y);
-      ctx.beginPath();
-      ctx.arc(sc.x, sc.y, n.fixed ? 6.5 : 4.5, 0, Math.PI * 2);
-
-      if (n.fixed) {
-        ctx.fillStyle = '#eab308';
-        ctx.strokeStyle = '#713f12';
-        ctx.lineWidth = 2.5;
-      } else {
-        ctx.fillStyle = '#f8fafc';
-        ctx.strokeStyle = '#090d16';
-        ctx.lineWidth = 2;
-      }
-      ctx.fill();
-      ctx.stroke();
-    }
+    ctx.fillText(label, mx, my - 13);
+    ctx.textAlign = 'left';
   }
 
   drawVehicle(ctx) {
-    if (!this.vehicle) return;
     const v = this.vehicle;
-    const sc = this.toScreen(v.x, v.y);
+    if (!v) return;
+    const p = this.toScreen(v.x, v.y);
     const w = v.width * this.PPM;
     const r = v.wheelRadius * this.PPM;
+    const accent = v.crashed ? '#ef4444' : '#38bdf8';
 
     ctx.save();
-    ctx.translate(sc.x, sc.y);
+    ctx.translate(p.x, p.y);
+    ctx.rotate(v.tilt + (v.crashed ? Math.sin(this.time * 3) * 0.25 : 0));
 
-    // Body
-    ctx.fillStyle = v.crashed ? '#ef4444' : '#38bdf8';
-    ctx.fillRect(-w * 0.5, -r * 2.2, w, r * 2.2);
-
-    // Windows
-    ctx.fillStyle = '#090d16';
-    ctx.fillRect(w * 0.05, -r * 2.0, w * 0.38, r * 1.3);
-
-    // Wheels
-    ctx.fillStyle = '#1e293b';
+    // Contact shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.arc(-w * 0.35, 0, r, 0, Math.PI * 2);
-    ctx.arc(w * 0.35, 0, r, 0, Math.PI * 2);
+    ctx.ellipse(0, r * 0.95, w * 0.46, r * 0.28, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.stroke();
+
+    const bodyH = v.type === 'truck' ? r * 2.9 : r * 2.2;
+
+    if (v.type === 'truck') {
+      // Freight box
+      const boxW = w * 0.62;
+      const g = ctx.createLinearGradient(0, -bodyH, 0, 0);
+      g.addColorStop(0, '#e2e8f0');
+      g.addColorStop(1, '#94a3b8');
+      ctx.fillStyle = v.crashed ? '#ef4444' : g;
+      ctx.beginPath();
+      ctx.roundRect(-w * 0.5, -bodyH, boxW, bodyH, 2);
+      ctx.fill();
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Corrugation
+      ctx.strokeStyle = 'rgba(71,85,105,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = -w * 0.5 + 5; x < -w * 0.5 + boxW - 3; x += 6) {
+        ctx.moveTo(x, -bodyH + 3); ctx.lineTo(x, -3);
+      }
+      ctx.stroke();
+
+      // Cab
+      const cabX = -w * 0.5 + boxW;
+      const cabH = bodyH * 0.72;
+      const cg = ctx.createLinearGradient(0, -cabH, 0, 0);
+      cg.addColorStop(0, '#7dd3fc');
+      cg.addColorStop(1, '#0369a1');
+      ctx.fillStyle = v.crashed ? '#b91c1c' : cg;
+      ctx.beginPath();
+      ctx.roundRect(cabX, -cabH, w * 0.5 - 1, cabH, [3, 5, 2, 2]);
+      ctx.fill();
+      ctx.strokeStyle = '#082f49';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Windscreen
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.85)';
+      ctx.beginPath();
+      ctx.roundRect(cabX + w * 0.16, -cabH + 3, w * 0.28, cabH * 0.45, 2);
+      ctx.fill();
+    } else {
+      // Car / van silhouette
+      const cg = ctx.createLinearGradient(0, -bodyH, 0, 0);
+      cg.addColorStop(0, v.type === 'van' ? '#a5b4fc' : '#7dd3fc');
+      cg.addColorStop(1, v.type === 'van' ? '#4338ca' : '#0369a1');
+      ctx.fillStyle = v.crashed ? '#ef4444' : cg;
+      ctx.beginPath();
+      ctx.roundRect(-w * 0.5, -bodyH * 0.62, w, bodyH * 0.62, [4, 4, 3, 3]);
+      ctx.fill();
+      // Cabin
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.28, -bodyH * 0.62);
+      ctx.lineTo(-w * 0.16, -bodyH);
+      ctx.lineTo(w * 0.22, -bodyH);
+      ctx.lineTo(w * 0.34, -bodyH * 0.62);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#082f49';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Glass
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.85)';
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.23, -bodyH * 0.66);
+      ctx.lineTo(-w * 0.14, -bodyH * 0.94);
+      ctx.lineTo(w * 0.19, -bodyH * 0.94);
+      ctx.lineTo(w * 0.28, -bodyH * 0.66);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Lamps
+    ctx.fillStyle = v.crashed ? '#7f1d1d' : '#fef3c7';
+    ctx.beginPath();
+    ctx.arc(w * 0.46, -bodyH * 0.3, Math.max(1.5, r * 0.16), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(-w * 0.47, -bodyH * 0.3, Math.max(1.2, r * 0.13), 0, Math.PI * 2);
+    ctx.fill();
+
+    if (!v.crashed) {
+      // Headlight wash
+      const beam = ctx.createLinearGradient(w * 0.46, 0, w * 0.46 + r * 5, 0);
+      beam.addColorStop(0, 'rgba(254, 243, 199, 0.28)');
+      beam.addColorStop(1, 'rgba(254, 243, 199, 0)');
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.46, -bodyH * 0.3);
+      ctx.lineTo(w * 0.46 + r * 5, -bodyH * 0.3 - r * 1.5);
+      ctx.lineTo(w * 0.46 + r * 5, -bodyH * 0.3 + r * 1.5);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Wheels with rotating spokes
+    const wheelXs = v.type === 'truck' ? [-w * 0.34, w * 0.02, w * 0.34] : [-w * 0.32, w * 0.32];
+    for (const wx of wheelXs) {
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(wx, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = Math.max(1.5, r * 0.22);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.translate(wx, 0);
+      ctx.rotate(v.wheelAngle);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = Math.max(1, r * 0.13);
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = (i * Math.PI) / 2;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62);
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#cbd5e1';
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.max(1, r * 0.16), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     ctx.restore();
   }
 
   drawParticles(ctx) {
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i];
-      p.x += p.vx * 0.02;
-      p.y += p.vy * 0.02;
-      p.life -= 0.02;
+    for (const p of this.particles) {
+      const s = this.toScreen(p.x, p.y);
+      const alpha = clamp(p.life, 0, 1);
 
-      if (p.life <= 0) {
-        this.particles.splice(i, 1);
-        continue;
+      if (p.kind === 'dust') {
+        const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, p.size);
+        g.addColorStop(0, `rgba(148, 163, 184, ${alpha * 0.32})`);
+        g.addColorStop(1, 'rgba(148, 163, 184, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === 'spark') {
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 6;
+        ctx.fillRect(s.x - p.size / 2, s.y - p.size / 2, p.size, p.size);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      } else if (p.kind === 'splash') {
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, p.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(s.x, s.y);
+        ctx.rotate(p.rot || 0);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size * 0.5, -p.size * 0.25, p.size, p.size * 0.5);
+        ctx.restore();
+        ctx.globalAlpha = 1;
       }
-
-      const sc = this.toScreen(p.x, p.y);
-      ctx.fillStyle = p.color;
-      ctx.globalAlpha = p.life;
-      ctx.fillRect(sc.x - 2, sc.y - 2, 4, 4);
     }
-    ctx.globalAlpha = 1.0;
+  }
+
+  /** Depth cue + collapse flash. */
+  drawOverlayFX(ctx) {
+    const w = this.viewW, h = this.viewH;
+    const vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.42)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, w, h);
+
+    if (this.flash > 0) {
+      ctx.fillStyle = `rgba(239, 68, 68, ${this.flash * 0.16})`;
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    // Span dimension line while designing
+    if (this.mode === 'build') {
+      const t = this.level.terrain;
+      const y = this.sy(t.groundY) + 22;
+      const x1 = this.sx(t.leftBank), x2 = this.sx(t.rightBank);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(x1, y); ctx.lineTo(x2, y);
+      ctx.moveTo(x1, y - 6); ctx.lineTo(x1, y + 6);
+      ctx.moveTo(x2, y - 6); ctx.lineTo(x2, y + 6);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.75)';
+      ctx.font = '600 11px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${(t.rightBank - t.leftBank).toFixed(0)} m span`, (x1 + x2) / 2, y + 15);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  // ==========================================================
+  //  FRAME
+  // ==========================================================
+  render() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.viewW, this.viewH);
+
+    ctx.save();
+    if (this.shake > 0.2) {
+      ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
+    }
+
+    this.drawSky(ctx);
+    this.drawClouds(ctx);
+    this.drawHills(ctx);
+    this.drawGorgeDepth(ctx);
+    this.drawWater(ctx);
+    this.drawCliffs(ctx);
+    this.drawGrid(ctx);
+    this.drawMembers(ctx);
+    this.drawGhostStrut(ctx);
+    this.drawNodes(ctx);
+    this.drawVehicle(ctx);
+    this.drawParticles(ctx);
+
+    ctx.restore();
+    this.drawOverlayFX(ctx);
   }
 
   loop(timestamp) {
-    const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+    const dt = clamp((timestamp - this.lastTime) / 1000, 0, 0.05);
     this.lastTime = timestamp;
+    this.time += dt;
+
+    // Presentation decay
+    this.shake *= Math.pow(0.001, dt);
+    this.flash = Math.max(0, this.flash - dt * 1.4);
+    if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt * 1.1);
 
     this.stepPhysics(dt);
-    this.render();
+    this.updateParticles(dt);
 
+    // Exhaust trail
+    const v = this.vehicle;
+    if (v && !v.crashed && !v.escaped) {
+      v.exhaustTimer -= dt;
+      if (v.exhaustTimer <= 0) {
+        v.exhaustTimer = 0.12;
+        this.emitExhaust(v.x - v.width * 0.5, v.y - 0.05);
+      }
+    }
+
+    // Checklist analysis runs a few times a second, not every frame
+    if (this.mode === 'build' && this.time >= this.analysisDue) {
+      this.analysisDue = this.time + 0.2;
+      this.analysis = this.analyze();
+      this.renderObjectives();
+    }
+
+    this.render();
     requestAnimationFrame(this.loop);
   }
 }
 
-// Launch application
+// Launch
 const app = new TrussCraftApp();
 </script>
 </body>
