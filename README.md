@@ -58,7 +58,3 @@ force in kilonewtons and how much of its capacity it is using.
   per frame; axial force from strain, with a length-scaled Euler buckling penalty
   in compression.
 - Procedurally generated audio and terrain; nothing is loaded from the network.
-
-## Licence
-
-MIT — free to use and adapt for teaching.
