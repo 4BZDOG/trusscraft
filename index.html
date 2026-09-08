@@ -3074,7 +3074,7 @@ class TrussCraftApp {
 
   /** Expanding pressure ring from a failure point. */
   addShockwave(x, y, power = 1) {
-    this.shockwaves.push({ x, y, t: 0, life: 0.55 + 0.25 * power, speed: 11 + 7 * power });
+    this.shockwaves.push({ x, y, t: 0, life: 0.42 + 0.16 * power, speed: 6 + 3.5 * power });
     if (this.shockwaves.length > 8) this.shockwaves.shift();
   }
 
@@ -3117,13 +3117,13 @@ class TrussCraftApp {
       });
     }
     // Billowing dust at the break
-    for (let i = 0; i < Math.round(14 * power); i++) {
+    for (let i = 0; i < Math.round(9 * power); i++) {
       this.addParticle({
         kind: 'dust',
-        x: mx + (Math.random() - 0.5) * 0.7, y: my + (Math.random() - 0.5) * 0.7,
-        vx: (Math.random() - 0.5) * 2.6, vy: -Math.random() * 1.6,
-        size: (8 + Math.random() * 20) * power,
-        color: '#94a3b8', life: 1, decay: 0.55
+        x: mx + (Math.random() - 0.5) * 0.9, y: my + (Math.random() - 0.5) * 0.9,
+        vx: (Math.random() - 0.5) * 2.4, vy: -Math.random() * 1.4,
+        size: (10 + Math.random() * 22) * power,
+        color: '#94a3b8', life: 1, decay: 0.5
       });
     }
     // Steel throws sparks
@@ -3192,7 +3192,7 @@ class TrussCraftApp {
       if (p.rot !== undefined) p.rot += p.vr * dt;
 
       if (p.kind === 'debris') { p.vy += 12 * dt; p.vx *= 0.99; }
-      else if (p.kind === 'dust') { p.vy -= 0.5 * dt; p.vx *= 0.96; p.size += 14 * dt; }
+      else if (p.kind === 'dust') { p.vy -= 0.5 * dt; p.vx *= 0.96; p.size += 22 * dt; }
       else if (p.kind === 'spark') { p.vy += 6 * dt; p.vx *= 0.94; p.vy *= 0.94; }
       else if (p.kind === 'splash') { p.vy += 14 * dt; }
 
@@ -4056,8 +4056,9 @@ class TrussCraftApp {
 
       if (p.kind === 'dust') {
         const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, p.size);
-        g.addColorStop(0, `rgba(148, 163, 184, ${alpha * 0.32})`);
-        g.addColorStop(1, 'rgba(148, 163, 184, 0)');
+        g.addColorStop(0, `rgba(170, 178, 194, ${alpha * 0.15})`);
+        g.addColorStop(0.55, `rgba(140, 150, 170, ${alpha * 0.07})`);
+        g.addColorStop(1, 'rgba(140, 150, 170, 0)');
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.arc(s.x, s.y, p.size, 0, Math.PI * 2);
