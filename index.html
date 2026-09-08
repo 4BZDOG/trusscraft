@@ -3074,7 +3074,7 @@ class TrussCraftApp {
 
   /** Expanding pressure ring from a failure point. */
   addShockwave(x, y, power = 1) {
-    this.shockwaves.push({ x, y, t: 0, life: 0.42 + 0.16 * power, speed: 6 + 3.5 * power });
+    this.shockwaves.push({ x, y, t: 0, life: 0.34 + 0.12 * power, speed: 3.6 + 2.2 * power });
     if (this.shockwaves.length > 8) this.shockwaves.shift();
   }
 
@@ -3117,13 +3117,13 @@ class TrussCraftApp {
       });
     }
     // Billowing dust at the break
-    for (let i = 0; i < Math.round(9 * power); i++) {
+    for (let i = 0; i < Math.round(7 * power); i++) {
       this.addParticle({
         kind: 'dust',
-        x: mx + (Math.random() - 0.5) * 0.9, y: my + (Math.random() - 0.5) * 0.9,
-        vx: (Math.random() - 0.5) * 2.4, vy: -Math.random() * 1.4,
-        size: (10 + Math.random() * 22) * power,
-        color: '#94a3b8', life: 1, decay: 0.5
+        x: mx + (Math.random() - 0.5) * len * 0.9, y: my + (Math.random() - 0.5) * 1.2,
+        vx: (Math.random() - 0.5) * 3, vy: -0.3 - Math.random() * 1.6,
+        size: (7 + Math.random() * 26) * power,
+        color: '#94a3b8', life: 1, decay: 0.45 + Math.random() * 0.25
       });
     }
     // Steel throws sparks
@@ -4056,9 +4056,9 @@ class TrussCraftApp {
 
       if (p.kind === 'dust') {
         const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, p.size);
-        g.addColorStop(0, `rgba(170, 178, 194, ${alpha * 0.15})`);
-        g.addColorStop(0.55, `rgba(140, 150, 170, ${alpha * 0.07})`);
-        g.addColorStop(1, 'rgba(140, 150, 170, 0)');
+        g.addColorStop(0, `rgba(176, 182, 196, ${alpha * 0.085})`);
+        g.addColorStop(0.5, `rgba(140, 150, 170, ${alpha * 0.045})`);
+        g.addColorStop(1, 'rgba(130, 140, 160, 0)');
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.arc(s.x, s.y, p.size, 0, Math.PI * 2);
@@ -4096,11 +4096,11 @@ class TrussCraftApp {
     for (const w of this.shockwaves) {
       const p = this.toScreen(w.x, w.y);
       const r = w.t * w.speed * this.PPM;
-      const a = Math.max(0, 1 - w.t / w.life);
-      if (a <= 0) continue;
+      const a = Math.pow(Math.max(0, 1 - w.t / w.life), 1.8);
+      if (a <= 0.01) continue;
 
-      ctx.strokeStyle = `rgba(255, 206, 150, ${a * 0.5})`;
-      ctx.lineWidth = Math.max(1, 6 * a);
+      ctx.strokeStyle = `rgba(255, 206, 150, ${a * 0.65})`;
+      ctx.lineWidth = Math.max(1, 9 * a);
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.stroke();
