@@ -552,12 +552,104 @@
   .stat-box .s-value { font-size: 1.08rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
   /* Stars */
-  .stars-row { display: flex; gap: 10px; margin: 4px 0 16px; }
-  .star-item { flex: 1; text-align: center; background: #0a1120; border: 1px solid var(--panel-border); border-radius: 9px; padding: 11px 8px; }
-  .star-item .st-icon { font-size: 1.5rem; line-height: 1; filter: grayscale(1) brightness(0.5); transition: filter 0.3s ease; }
-  .star-item.earned .st-icon { filter: none; text-shadow: 0 0 14px #f59e0b88; }
-  .star-item .st-label { font-size: 0.65rem; color: var(--text-dim); margin-top: 6px; line-height: 1.3; }
-  .star-item.earned .st-label { color: #cbd5e1; }
+  .stars-row { display: flex; gap: 10px; margin: 6px 0 18px; }
+  .star-item {
+    flex: 1;
+    text-align: center;
+    background: #0a1120;
+    border: 1px solid var(--panel-border);
+    border-radius: 11px;
+    padding: 15px 8px 13px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: starCardIn 0.42s cubic-bezier(0.2, 1.3, 0.4, 1) forwards;
+    animation-delay: var(--d, 0s);
+  }
+  @keyframes starCardIn { to { opacity: 1; transform: none; } }
+
+  .star-item .st-icon {
+    font-size: 2.6rem;
+    line-height: 1;
+    display: block;
+    color: #263248;
+    position: relative;
+    z-index: 1;
+  }
+  .star-item .st-label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    margin-top: 9px;
+    line-height: 1.35;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* --- earned --- */
+  .star-item.earned {
+    border-color: #a16207;
+    background: linear-gradient(180deg, #241a07, #14101f);
+  }
+  .star-item.earned .st-icon {
+    color: #fbbf24;
+    text-shadow: 0 0 18px #f59e0bcc, 0 0 42px #f59e0b66;
+    animation: starPop 0.62s cubic-bezier(0.2, 1.6, 0.35, 1) backwards;
+    animation-delay: calc(var(--d, 0s) + 0.12s);
+  }
+  .star-item.earned .st-label { color: #fde68a; }
+  @keyframes starPop {
+    0%   { transform: scale(0.2) rotate(-45deg); opacity: 0; }
+    55%  { transform: scale(1.35) rotate(8deg);  opacity: 1; }
+    100% { transform: scale(1) rotate(0);        opacity: 1; }
+  }
+
+  /* Light burst behind an earned star */
+  .star-item.earned::before {
+    content: '';
+    position: absolute;
+    top: 26px; left: 50%;
+    width: 130px; height: 130px;
+    margin: -65px 0 0 -65px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #f59e0b55 0%, #f59e0b22 38%, transparent 68%);
+    animation: starBurst 0.85s ease-out backwards;
+    animation-delay: calc(var(--d, 0s) + 0.12s);
+    pointer-events: none;
+  }
+  @keyframes starBurst {
+    0%   { transform: scale(0.1); opacity: 0.95; }
+    100% { transform: scale(1.9); opacity: 0; }
+  }
+
+  /* Sweep of light across the card */
+  .star-item.earned::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 30%, #fde68a3d 48%, transparent 66%);
+    transform: translateX(-120%);
+    animation: starSweep 0.9s ease-out backwards;
+    animation-delay: calc(var(--d, 0s) + 0.2s);
+    pointer-events: none;
+  }
+  @keyframes starSweep { to { transform: translateX(120%); } }
+
+  /* --- not earned --- */
+  .star-item.missed { opacity: 0.62; }
+  .star-item.missed .st-icon { color: #2c3a54; }
+
+  /* Headline tally above the cards */
+  .star-tally {
+    text-align: center;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .star-tally b { color: var(--warning); font-size: 0.95rem; letter-spacing: 0; }
 
   /* Level select cards */
   .level-list { display: flex; flex-direction: column; gap: 8px; }
@@ -904,6 +996,21 @@ class SoundSystem {
     }
   }
 
+  /** Low-end body blow for a structural failure. */
+  playRumble(power = 1) {
+    if (!this.ctx || !this.enabled) return;
+    this.noise(0.9, 'lowpass', 110 + 60 * power, 0.26 * power);
+    this.tone(58, 0.85, 'sine', 0.15 * power, 26);
+    this.tone(41, 1.1, 'triangle', 0.10 * power, 22, 0.05);
+  }
+
+  /** Rising metallic shriek as a big collapse starts. */
+  playGroan() {
+    if (!this.ctx || !this.enabled) return;
+    this.tone(150, 0.55, 'sawtooth', 0.07, 420);
+    this.noise(0.5, 'bandpass', 2200, 0.1, 0.05, 6);
+  }
+
   playVictory() {
     const notes = [261.6, 329.6, 392.0, 523.3, 659.3];
     notes.forEach((f, i) => this.tone(f, 0.4, 'sine', 0.13, null, i * 0.1));
@@ -1120,6 +1227,10 @@ class TrussCraftApp {
     this.shake = 0;
     this.slowmo = 0;
     this.flash = 0;
+    this.zoom = 0;
+    this.zoomFocus = { x: 0, y: 0 };
+    this.shockwaves = [];
+    this.cascade = 0;
     this.clouds = Array.from({ length: 7 }, (_, i) => ({
       x: hash1(i * 3.1) * 30 - 3,
       y: 0.4 + hash1(i * 7.7) * 3.2,
@@ -1492,18 +1603,32 @@ class TrussCraftApp {
     const stars = success ? (1 + (underBudget ? 1 : 0) + (efficient ? 1 : 0)) : 0;
     if (success) this.saveProgress(this.level.id, stars, cost);
 
-    const starRow = `
+    const criteria = [
+      { won: success, label: 'Vehicle crossed safely' },
+      { won: success && underBudget, label: 'Finished under budget' },
+      { won: success && efficient, label: budget >= 99999
+          ? 'Efficient design<br>(no member over 60%)'
+          : `Efficient design<br>(build it for under $${Math.round(budget * EFFICIENCY_FRACTION).toLocaleString()})` }
+    ];
+
+    // Each card fades in on a stagger; earned ones then pop, flare and get a chime.
+    const tally = success
+      ? `<div class="star-tally">You earned <b>${stars} of 3</b> stars</div>`
+      : `<div class="star-tally">No stars — the bridge did not survive</div>`;
+
+    const starRow = tally + `
       <div class="stars-row">
-        <div class="star-item ${success ? 'earned' : ''}">
-          <div class="st-icon">★</div><div class="st-label">Vehicle crossed safely</div>
-        </div>
-        <div class="star-item ${success && underBudget ? 'earned' : ''}">
-          <div class="st-icon">★</div><div class="st-label">Finished under budget</div>
-        </div>
-        <div class="star-item ${success && efficient ? 'earned' : ''}">
-          <div class="st-icon">★</div><div class="st-label">${budget >= 99999 ? 'Efficient design<br>(no member over 60%)' : `Efficient design<br>(build it for under $${Math.round(budget * EFFICIENCY_FRACTION).toLocaleString()})`}</div>
-        </div>
+        ${criteria.map((c, i) => `
+          <div class="star-item ${c.won ? 'earned' : 'missed'}" style="--d:${(i * 0.22).toFixed(2)}s">
+            <div class="st-icon">${c.won ? '★' : '☆'}</div>
+            <div class="st-label">${c.label}</div>
+          </div>`).join('')}
       </div>`;
+
+    // Chime once per earned star, rising in pitch, timed to the pop animation.
+    criteria.forEach((c, i) => {
+      if (c.won) audio.tone(523.25 * Math.pow(2, i / 12 * 4), 0.5, 'sine', 0.16, null, i * 0.22 + 0.12);
+    });
 
     const statGrid = `
       <div class="stat-grid">
@@ -2539,6 +2664,10 @@ class TrussCraftApp {
     this.currentSag = 0;
     this.sagWarned = false;
     this.deckCracked = false;
+    this.cascade = 0;
+    this.shockwaves = [];
+    this.zoom = 0;
+    this.flash = 0;
     this.members.forEach(m => { m.peak = 0; m.broken = false; });
     this.nodes.forEach(n => { n.restY = n.y; });
 
@@ -2589,6 +2718,10 @@ class TrussCraftApp {
     this.particles = [];
     this.shake = 0;
     this.slowmo = 0;
+    this.zoom = 0;
+    this.flash = 0;
+    this.cascade = 0;
+    this.shockwaves = [];
     this.setStressMeter(0);
     this.refreshHistoryButtons();
     this.updateCursor();
@@ -2641,7 +2774,7 @@ class TrussCraftApp {
     if (this.mode !== 'test') return;
 
     const subSteps = 16;
-    const timeScale = this.slowmo > 0 ? lerp(0.28, 1, 1 - this.slowmo) : 1;
+    const timeScale = this.slowmo > 0 ? lerp(0.16, 1, 1 - this.slowmo) : 1;
     const subDt = (dt * this.simSpeed * timeScale) / subSteps;
     const g = 9.81;
 
@@ -2786,11 +2919,11 @@ class TrussCraftApp {
     candidates.forEach(m => {
       m.broken = true;
       this.brokenCount++;
-      this.emitDebris(m);
+      this.emitDebris(m, 1.6);
     });
-    this.shake = Math.min(20, this.shake + 10);
-    this.flash = 0.7;
+    audio.playGroan();
     audio.playSnap();
+    this.impact(node.x, node.y, 1.5);   // the slab letting go is the big one
   }
 
   breakMember(m, force) {
@@ -2807,10 +2940,9 @@ class TrussCraftApp {
       this.slowmo = 1;
       this.toast('bad', '💥', `A <b>${m.restLen.toFixed(1)} m ${MATERIALS[m.mat].name.toLowerCase()}</b> member failed in <b>${force < 0 ? 'compression' : 'tension'}</b>.`, 4000);
     }
-    this.shake = Math.min(16, this.shake + 7);
-    this.flash = 0.5;
     audio.playSnap();
-    this.emitDebris(m);
+    this.emitDebris(m, 1);
+    this.impact((m.n1.x + m.n2.x) / 2, (m.n1.y + m.n2.y) / 2, 1);
   }
 
   stepVehicle(subDt, subSteps, g) {
@@ -2867,7 +2999,7 @@ class TrussCraftApp {
       v.splashed = true;
       audio.playSplash();
       this.emitSplash(v.x, t.waterY);
-      this.shake = Math.min(18, this.shake + 8);
+      this.impact(v.x, t.waterY, 1.2);
     }
     if (v.y > t.waterY + 0.5 && !v.crashed) {
       v.crashed = true;
@@ -2936,43 +3068,67 @@ class TrussCraftApp {
   //  PARTICLE EFFECTS
   // ==========================================================
   addParticle(p) {
-    if (this.particles.length > 420) this.particles.shift();
+    if (this.particles.length > 700) this.particles.shift();
     this.particles.push(p);
   }
 
-  emitDebris(member) {
+  /** Expanding pressure ring from a failure point. */
+  addShockwave(x, y, power = 1) {
+    this.shockwaves.push({ x, y, t: 0, life: 0.55 + 0.25 * power, speed: 11 + 7 * power });
+    if (this.shockwaves.length > 8) this.shockwaves.shift();
+  }
+
+  /**
+   * One place to escalate everything that makes a failure feel violent.
+   * Successive breaks stack, so a cascade hits harder than a single snap.
+   */
+  impact(x, y, power) {
+    this.cascade = Math.min(6, this.cascade + 1);
+    const stacked = power * (1 + this.cascade * 0.16);
+    this.shake = Math.min(34, this.shake + 9 * stacked);
+    this.flash = Math.min(1, this.flash + 0.45 * stacked);
+    this.zoom = Math.min(1, this.zoom + 0.5 * power);
+    this.zoomFocus = { x, y };
+    this.addShockwave(x, y, stacked);
+    if (this.time - (this.lastRumble || -1) > 0.12) {
+      this.lastRumble = this.time;
+      audio.playRumble(Math.min(1.2, stacked));
+    }
+  }
+
+  emitDebris(member, power = 1) {
     const mx = (member.n1.x + member.n2.x) * 0.5;
     const my = (member.n1.y + member.n2.y) * 0.5;
     const color = MATERIALS[member.mat].color;
     const len = member.restLen;
 
     // Splinters / fragments thrown along the member axis
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < Math.round(22 * power); i++) {
       const along = (Math.random() - 0.5) * len;
       const ux = (member.n2.x - member.n1.x) / (len || 1);
       const uy = (member.n2.y - member.n1.y) / (len || 1);
       this.addParticle({
         kind: 'debris',
         x: mx + ux * along, y: my + uy * along,
-        vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.85) * 6,
-        rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 14,
-        size: 2 + Math.random() * 4,
-        color, life: 1, decay: 0.5 + Math.random() * 0.4
+        vx: (Math.random() - 0.5) * 9 * power, vy: (Math.random() - 0.9) * 9 * power,
+        rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 20,
+        size: (2 + Math.random() * 5) * power,
+        color, life: 1, decay: 0.3 + Math.random() * 0.3
       });
     }
-    // Dust puff at the break
-    for (let i = 0; i < 7; i++) {
+    // Billowing dust at the break
+    for (let i = 0; i < Math.round(14 * power); i++) {
       this.addParticle({
         kind: 'dust',
-        x: mx + (Math.random() - 0.5) * 0.4, y: my + (Math.random() - 0.5) * 0.4,
-        vx: (Math.random() - 0.5) * 1.6, vy: -Math.random() * 1.2,
-        size: 6 + Math.random() * 14,
-        color: '#94a3b8', life: 1, decay: 0.85
+        x: mx + (Math.random() - 0.5) * 0.7, y: my + (Math.random() - 0.5) * 0.7,
+        vx: (Math.random() - 0.5) * 2.6, vy: -Math.random() * 1.6,
+        size: (8 + Math.random() * 20) * power,
+        color: '#94a3b8', life: 1, decay: 0.55
       });
     }
     // Steel throws sparks
     if (member.mat === 'steel') {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < Math.round(18 * power); i++) {
         this.addParticle({
           kind: 'spark',
           x: mx, y: my,
@@ -3934,6 +4090,28 @@ class TrussCraftApp {
     }
   }
 
+  /** Pressure rings racing out from each failure. */
+  drawShockwaves(ctx) {
+    for (const w of this.shockwaves) {
+      const p = this.toScreen(w.x, w.y);
+      const r = w.t * w.speed * this.PPM;
+      const a = Math.max(0, 1 - w.t / w.life);
+      if (a <= 0) continue;
+
+      ctx.strokeStyle = `rgba(255, 206, 150, ${a * 0.5})`;
+      ctx.lineWidth = Math.max(1, 6 * a);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255, 255, 255, ${a * a * 0.5})`;
+      ctx.lineWidth = Math.max(0.6, 2.5 * a);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * 0.74, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
   /** Depth cue + collapse flash. */
   drawOverlayFX(ctx) {
     const w = this.viewW, h = this.viewH;
@@ -3944,7 +4122,16 @@ class TrussCraftApp {
     ctx.fillRect(0, 0, w, h);
 
     if (this.flash > 0) {
-      ctx.fillStyle = `rgba(239, 68, 68, ${this.flash * 0.16})`;
+      const f = clamp(this.flash, 0, 1);
+      ctx.fillStyle = `rgba(255, 176, 120, ${f * 0.13})`;
+      ctx.fillRect(0, 0, w, h);
+
+      // Danger vignette punching in from the edges
+      const edge = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2,
+                                            w / 2, h / 2, Math.max(w, h) * 0.62);
+      edge.addColorStop(0, 'rgba(239, 68, 68, 0)');
+      edge.addColorStop(1, `rgba(239, 68, 68, ${f * 0.5})`);
+      ctx.fillStyle = edge;
       ctx.fillRect(0, 0, w, h);
     }
 
@@ -3978,8 +4165,18 @@ class TrussCraftApp {
     ctx.clearRect(0, 0, this.viewW, this.viewH);
 
     ctx.save();
+
+    // Camera punches in toward whatever just failed, then eases back out.
+    if (this.zoom > 0.002) {
+      const f = this.toScreen(this.zoomFocus.x, this.zoomFocus.y);
+      const s = 1 + this.zoom * 0.13;
+      ctx.translate(f.x, f.y);
+      ctx.scale(s, s);
+      ctx.translate(-f.x, -f.y);
+    }
     if (this.shake > 0.2) {
       ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
+      ctx.rotate((Math.random() - 0.5) * this.shake * 0.0009);
     }
 
     this.drawSky(ctx);
@@ -3995,6 +4192,7 @@ class TrussCraftApp {
     this.drawNodes(ctx);
     this.drawVehicle(ctx);
     this.drawParticles(ctx);
+    this.drawShockwaves(ctx);
 
     ctx.restore();
     this.drawOverlayFX(ctx);
@@ -4006,9 +4204,16 @@ class TrussCraftApp {
     this.time += dt;
 
     // Presentation decay
-    this.shake *= Math.pow(0.001, dt);
-    this.flash = Math.max(0, this.flash - dt * 1.4);
-    if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt * 1.1);
+    this.shake *= Math.pow(0.0016, dt);
+    this.flash = Math.max(0, this.flash - dt * 1.15);
+    this.zoom *= Math.pow(0.035, dt);
+    if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt * 0.75);
+    if (this.cascade > 0) this.cascade = Math.max(0, this.cascade - dt * 1.2);
+
+    for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+      this.shockwaves[i].t += dt;
+      if (this.shockwaves[i].t > this.shockwaves[i].life) this.shockwaves.splice(i, 1);
+    }
 
     this.stepPhysics(dt);
     this.updateParticles(dt);
