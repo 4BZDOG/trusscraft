@@ -1125,8 +1125,40 @@ const LEVELS = [
     carMass: 6500
   },
   {
+    id: 6,
+    title: "5. The Cantilever",
+    goal: "Reach 9 metres across with only one bank to hold on to.",
+    desc: "The far cliff is crumbling rock — <b>no anchor may be fixed to it</b>. Everything you build has to reach back to the near bank, so the bridge must hold its own far end up. Use both the deck-level anchor and the tower above it.",
+    concept: "Cantilevers",
+    tip: "Tie into one anchor only and your bridge is a gate, not a bridge — it swings down about that point. You need <b>two anchors at different heights</b> so the pair of them can resist the twist. Notice the forces come out backwards from a normal truss: here the top chord is <b>pulled</b> and the bottom is <b>pushed</b>.",
+    budget: 3200,
+    anchors: [
+      { x: 3, y: 7, fixed: true },   // deck level
+      { x: 3, y: 5, fixed: true },   // tower, low tie
+      { x: 3, y: 3.5, fixed: true }, // tower, high tie
+      { x: 3, y: 9.5, fixed: true }  // cliff face, for building below the deck
+    ],
+    terrain: { leftBank: 3, rightBank: 12, groundY: 7, waterY: 12 },
+    carMass: 1600
+  },
+  {
+    id: 7,
+    title: "6. The Long Haul",
+    goal: "Carry a 2 tonne car across 20 metres — the widest crossing yet.",
+    desc: "More than twice level 1. There is a <b>rock stack</b> standing in the middle of the river with anchors bolted into it. You do not have to use it — a single 20 metre span will stand — but find out what it costs you.",
+    concept: "Span length & cost",
+    tip: "The force in a truss grows far faster than its length. Halving a span does not halve the material it needs, it roughly quarters it — which is exactly why real long bridges march across on piers instead of leaping the whole way in one go. Build it both ways and compare the bill.",
+    budget: 6000,
+    anchors: [
+      { x: 2, y: 7, fixed: true },  { x: 22, y: 7, fixed: true },
+      { x: 12, y: 7, fixed: true }, { x: 12, y: 9, fixed: true }
+    ],
+    terrain: { leftBank: 2, rightBank: 22, groundY: 7, waterY: 13, pier: { x: 12, topY: 7, width: 1.6 } },
+    carMass: 2000
+  },
+  {
     id: 5,
-    title: "5. Engineering Sandbox",
+    title: "7. Engineering Sandbox",
     goal: "Design freely — no budget limit, no restrictions.",
     desc: "An open laboratory with anchor points high, low and level. Build a Warren truss, a Pratt truss, an arch, a suspension span or a cantilever, and compare how the forces redistribute through each one.",
     concept: "Free experimentation",
@@ -1738,7 +1770,7 @@ class TrussCraftApp {
         : `${lvl.concept} · budget ${lvl.budget >= 99999 ? 'unlimited' : '$' + lvl.budget.toLocaleString()}`;
       return `
         <button class="level-card ${i === this.currentLevelIdx ? 'current' : ''}" onclick="app.closeModal(); app.loadLevel(${i});">
-          <div class="lc-num">${lvl.id}</div>
+          <div class="lc-num">${i + 1}</div>
           <div class="lc-main">
             <div class="lc-title">${lvl.title.replace(/^\d+\.\s*/, '')}</div>
             <div class="lc-sub">${sub}</div>
@@ -3692,6 +3724,106 @@ class TrussCraftApp {
     ctx.textAlign = 'left';
   }
 
+  /** Mid-river rock stack that carries anchors, drawn to match the cliffs. */
+  drawPier(ctx) {
+    const t = this.level.terrain;
+    if (!t.pier) return;
+    const p = t.pier;
+    const cx = this.sx(p.x);
+    const top = this.sy(p.topY);
+    const halfTop = (p.width / 2) * this.PPM;
+    const halfBot = (p.width / 2) * 1.9 * this.PPM;
+    const h = this.viewH;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx - halfTop, top);
+    for (let y = p.topY; y <= this.toWorld(0, h).y + 1; y += 0.3) {
+      const k = (y - p.topY) / 6;
+      const w = lerp(halfTop, halfBot, clamp(k, 0, 1));
+      const jag = (noise1(y * 2.1 + 30) - 0.5) * 0.28 * this.PPM;
+      ctx.lineTo(cx + w + jag, this.sy(y));
+    }
+    ctx.lineTo(cx + halfBot, h);
+    ctx.lineTo(cx - halfBot, h);
+    for (let y = this.toWorld(0, h).y + 1; y >= p.topY; y -= 0.3) {
+      const k = (y - p.topY) / 6;
+      const w = lerp(halfTop, halfBot, clamp(k, 0, 1));
+      const jag = (noise1(y * 2.1 + 77) - 0.5) * 0.28 * this.PPM;
+      ctx.lineTo(cx - w + jag, this.sy(y));
+    }
+    ctx.closePath();
+    ctx.save();
+    ctx.clip();
+
+    const rock = ctx.createLinearGradient(0, top, 0, h);
+    rock.addColorStop(0, '#3a4d6b');
+    rock.addColorStop(0.3, '#2a3b56');
+    rock.addColorStop(1, '#16243a');
+    ctx.fillStyle = rock;
+    ctx.fillRect(0, 0, this.viewW, h);
+
+    for (let i = 0; i < 18; i++) {
+      const yw = p.topY + 0.5 + i * 0.62;
+      ctx.fillStyle = i % 3 === 0 ? 'rgba(90, 116, 150, 0.16)' : 'rgba(10, 17, 30, 0.28)';
+      ctx.fillRect(cx - halfBot, this.sy(yw), halfBot * 2, 3 + hash1(i * 4.4) * 6);
+    }
+    const shade = ctx.createLinearGradient(cx - halfBot, 0, cx + halfBot, 0);
+    shade.addColorStop(0, 'rgba(0,0,0,0.35)');
+    shade.addColorStop(0.4, 'rgba(0,0,0,0)');
+    shade.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = shade;
+    ctx.fillRect(cx - halfBot, 0, halfBot * 2, h);
+    ctx.restore();
+
+    ctx.strokeStyle = '#3d5675';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Grass cap so it reads as land, like the banks
+    ctx.fillStyle = '#3f5d3a';
+    ctx.fillRect(cx - halfTop, top - 4, halfTop * 2, 4);
+    ctx.fillStyle = '#4d7044';
+    ctx.fillRect(cx - halfTop, top - 4, halfTop * 2, 2);
+  }
+
+  /** Lattice tower under any anchor standing above its bank. */
+  drawPylons(ctx) {
+    const t = this.level.terrain;
+    const sc = this.PPM / 40;
+    for (const a of this.level.anchors) {
+      if (a.y >= t.groundY - 0.6) continue;
+      const cx = this.sx(a.x);
+      const top = this.sy(a.y);
+      const base = this.sy(t.groundY);
+      const halfTop = 5 * sc, halfBase = 13 * sc;
+
+      ctx.strokeStyle = '#33455f';
+      ctx.lineWidth = 3 * sc;
+      ctx.beginPath();
+      ctx.moveTo(cx - halfTop, top); ctx.lineTo(cx - halfBase, base);
+      ctx.moveTo(cx + halfTop, top); ctx.lineTo(cx + halfBase, base);
+      ctx.stroke();
+
+      // Cross bracing
+      ctx.strokeStyle = '#2a3a52';
+      ctx.lineWidth = 1.6 * sc;
+      ctx.beginPath();
+      const rungs = Math.max(3, Math.round((base - top) / (16 * sc)));
+      for (let i = 0; i <= rungs; i++) {
+        const f = i / rungs, y = lerp(top, base, f), w = lerp(halfTop, halfBase, f);
+        ctx.moveTo(cx - w, y); ctx.lineTo(cx + w, y);
+        if (i < rungs) {
+          const f2 = (i + 1) / rungs, y2 = lerp(top, base, f2), w2 = lerp(halfTop, halfBase, f2);
+          ctx.moveTo(cx - w, y);  ctx.lineTo(cx + w2, y2);
+          ctx.moveTo(cx + w, y);  ctx.lineTo(cx - w2, y2);
+        }
+      }
+      ctx.stroke();
+    }
+  }
+
   drawGrid(ctx) {
     if (this.mode === 'test') return;
     const min = this.toWorld(0, 0);
@@ -4493,6 +4625,8 @@ class TrussCraftApp {
     this.drawGorgeDepth(ctx);
     this.drawWater(ctx);
     this.drawCliffs(ctx);
+    this.drawPier(ctx);
+    this.drawPylons(ctx);
     this.drawZone(ctx);
     this.drawGrid(ctx);
     this.drawMembers(ctx);

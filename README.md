@@ -18,7 +18,7 @@ No install, no build step, no dependencies — one HTML file that runs offline.
 | **Triangulation** | A flat deck bends until the slab cracks; the same deck with triangles added sags ~20x less and survives |
 | **Euler buckling** | Compression capacity falls with the square of member length, so long struts fail first |
 | **Deflection limits** | Roadway has no bending strength of its own. Past a deflection of span ÷ 40 the deck slab cracks and the bridge drops the vehicle |
-| **Choosing a bridge type** | Each level forbids the previous level's answer — build below the deck, then above it, so the structural form has to change |
+| **Choosing a bridge type** | Each level forbids the previous level's answer — below the deck, then above it, then with only one bank to anchor to |
 | **Material economy** | Every member costs money, so the challenge is the *cheapest* structure that stands up |
 
 ## Levels
@@ -27,7 +27,9 @@ No install, no build step, no dependencies — one HTML file that runs offline.
 2. **The Deep Gorge** — ships pass overhead, so *nothing may be built above the deck*. Forces a deck truss or arch.
 3. **Suspension Towers** — the water is too deep for piers, so *nothing may be built below the deck*. Forces a through truss, and is the place to discover that a cable which goes slack carries nothing.
 4. **Heavy Freight** — a 6.5 t truck on a mean budget. All-timber is flattened, all-steel busts the budget; the student has to choose between building deeper and building stronger.
-5. **Engineering Sandbox** — open build, no budget, no restrictions.
+5. **The Cantilever** — the far cliff is crumbling, so *no anchor may be fixed to it*. The bridge has to hold its own far end up, and the forces come out backwards: the top chord is pulled, the bottom pushed.
+6. **The Long Haul** — 20 metres, with a rock stack mid-river offering anchors. A single span will stand; using the stack costs about a third less. Teaches why long bridges march across on piers.
+7. **Engineering Sandbox** — open build, no budget, no restrictions.
 
 Each level is winnable in more than one way, and level 4 has at least three distinct three-star solutions.
 
