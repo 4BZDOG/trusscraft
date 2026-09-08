@@ -1803,6 +1803,20 @@ class TrussCraftApp {
     const target = document.querySelector(step.sel);
     if (!target) return this.endCoach();
 
+    // The toolbar scrolls sideways on narrow screens, so a target can be off-screen.
+    // Bring it into view first, then measure, or the spotlight lands on empty space.
+    if (typeof target.scrollIntoView === 'function') {
+      try {
+        target.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
+      } catch (e) {
+        target.scrollIntoView(false);
+      }
+    }
+    requestAnimationFrame(() => this.positionCoach(target, c, step));
+  }
+
+  positionCoach(target, c, step) {
+    if (!this.coach) return;
     const r = target.getBoundingClientRect();
     const pad = 6;
     const hole = document.getElementById('coach-hole');
