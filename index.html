@@ -1059,6 +1059,7 @@ const RISK_THRESHOLD   = 0.75;  // stress fraction that counts as "at risk"
 const SAG_SPAN_RATIO   = 40;    // deck cracks past a deflection of span / this
 const SAG_WARN_FRACTION = 0.55; // fraction of that limit at which the deck starts groaning
 const EFFICIENCY_FRACTION = 0.75; // spend under this share of budget to earn the third star
+const SANDBOX_STIFF_FRACTION = 0.6; // sandbox stiffness star: deflect under this share of the limit
 
 // ============================================================
 //  CURRICULUM LEVELS
@@ -1115,8 +1116,8 @@ const LEVELS = [
     goal: "Get a 6.5 tonne freight truck across 14 metres, cheaply.",
     desc: "No restrictions on where you build — the difficulty is the load. This truck is <b>four and a half times</b> level 1's car, and the shallow truss that carried that car will be flattened by it. An all-steel version will not fit the budget, so you have a choice to make: build <b>deeper</b>, or build <b>stronger</b>.",
     concept: "Material selection",
-    tip: "Depth is free strength. Doubling how far your truss stands above the deck roughly halves the force in its chords, and a taller timber truss can beat a short steel one for less money. Steel is three times the price of wood — worth it in the two or three members carrying the most, wasteful everywhere else.",
-    budget: 4700,
+    tip: "Depth is free strength. Doubling how far your truss stands above the deck roughly halves the force in its chords, and a taller timber truss can beat a short steel one for less money. Steel is three times the price of wood — worth it in the two or three members carrying the most, wasteful everywhere else. The budget here is tight enough that a cheap design has to be a <b>good</b> design.",
+    budget: 3750,
     anchors: [
       { x: 3, y: 6.5, fixed: true }, { x: 17, y: 6.5, fixed: true },
       { x: 1, y: 9, fixed: true },   { x: 19, y: 9, fixed: true }
@@ -1131,7 +1132,7 @@ const LEVELS = [
     desc: "The far cliff is crumbling rock — <b>no anchor may be fixed to it</b>. Everything you build has to reach back to the near bank, so the bridge must hold its own far end up. Use both the deck-level anchor and the tower above it.",
     concept: "Cantilevers",
     tip: "Tie into one anchor only and your bridge is a gate, not a bridge — it swings down about that point. You need <b>two anchors at different heights</b> so the pair of them can resist the twist. Notice the forces come out backwards from a normal truss: here the top chord is <b>pulled</b> and the bottom is <b>pushed</b>.",
-    budget: 3200,
+    budget: 3000,
     anchors: [
       { x: 3, y: 7, fixed: true },   // deck level
       { x: 3, y: 5, fixed: true },   // tower, low tie
@@ -1145,10 +1146,10 @@ const LEVELS = [
     id: 7,
     title: "6. The Long Haul",
     goal: "Carry a 2 tonne car across 20 metres — the widest crossing yet.",
-    desc: "More than twice level 1. There is a <b>rock stack</b> standing in the middle of the river with anchors bolted into it. You do not have to use it — a single 20 metre span will stand — but find out what it costs you.",
-    concept: "Span length & cost",
-    tip: "The force in a truss grows far faster than its length. Halving a span does not halve the material it needs, it roughly quarters it — which is exactly why real long bridges march across on piers instead of leaping the whole way in one go. Build it both ways and compare the bill.",
-    budget: 6000,
+    desc: "More than twice level 1, and the roadway alone eats a third of your money before you brace anything. There is a <b>rock stack</b> mid-river with anchors in it. A single 20 metre span will stand — but landing on the stack is both cheaper and stiffer, and the budget is set so that only the tidier answer earns full marks.",
+    concept: "Efficiency at scale",
+    tip: "Cost here is simply how much material you buy, so the win comes from using <b>less of it</b>, not stronger stuff. Wider bays mean fewer members; more depth means lower forces but longer verticals. Landing on the stack buys you roughly 6% on cost and 15% on stiffness — small, but at this size small is the whole margin.",
+    budget: 4800,
     anchors: [
       { x: 2, y: 7, fixed: true },  { x: 22, y: 7, fixed: true },
       { x: 12, y: 7, fixed: true }, { x: 12, y: 9, fixed: true }
@@ -1159,11 +1160,12 @@ const LEVELS = [
   {
     id: 5,
     title: "7. Engineering Sandbox",
-    goal: "Design freely — no budget limit, no restrictions.",
-    desc: "An open laboratory with anchor points high, low and level. Build a Warren truss, a Pratt truss, an arch, a suspension span or a cantilever, and compare how the forces redistribute through each one.",
+    goal: "Design freely — then beat par.",
+    desc: "An open laboratory with anchor points high, low and level. Build a Warren truss, a Pratt truss, an arch, a suspension span or a cantilever, and compare how the forces redistribute. No budget ceiling — instead there is a <b>par of $3,550</b> and a <b>stiffness target</b>. The cheapest bridge that survives this crossing costs $3,225, so par is tight, and the cheapest bridge is far too floppy to earn the other star.",
     concept: "Free experimentation",
-    tip: "Hover any member during a test to read its exact force and how much of its capacity it is using. Set yourself a challenge: the cheapest bridge that never exceeds 60% on any member.",
+    tip: "The two targets here genuinely pull against each other. Cost is simply total material, so the cheapest bridge is a <b>shallow</b> one with wide bays — and a shallow truss is a floppy one, which blows the stiffness target. Getting both stars means finding the depth that is just deep enough. Note that stress is almost never your problem in this engine: deflection is what fails you.",
     budget: 99999,
+    par: 3550,
     anchors: [
       { x: 3, y: 7, fixed: true },  { x: 21, y: 7, fixed: true },
       { x: 3, y: 3, fixed: true },  { x: 21, y: 3, fixed: true },
@@ -1485,7 +1487,9 @@ class TrussCraftApp {
 
   showBrief() {
     const lvl = this.level;
-    const budgetText = lvl.budget >= 99999 ? 'Unlimited' : '$' + lvl.budget.toLocaleString();
+    const budgetText = lvl.budget >= 99999
+      ? (lvl.par ? 'Par $' + lvl.par.toLocaleString() : 'Unlimited')
+      : '$' + lvl.budget.toLocaleString();
     this.showModal({
       eyebrow: `Mission brief · Key concept: ${lvl.concept}`,
       title: lvl.title,
@@ -1494,7 +1498,7 @@ class TrussCraftApp {
         <p>${lvl.desc}</p>
         <div class="stat-grid">
           <div class="stat-box">
-            <div class="s-label">Budget</div>
+            <div class="s-label">${lvl.budget >= 99999 && lvl.par ? 'Target' : 'Budget'}</div>
             <div class="s-value" style="color:var(--accent)">${budgetText}</div>
           </div>
           <div class="stat-box">
@@ -1632,17 +1636,28 @@ class TrussCraftApp {
     const crackedAt = this.firstFailure && this.firstFailure.type === 'deflection' ? this.firstFailure.sag : null;
     const sag = crackedAt !== null ? crackedAt : (this.maxSag || 0);
     const stiff = sag < this.sagLimit();
-    const thrifty = budget < 99999 && cost <= budget * EFFICIENCY_FRACTION;
-    const efficient = underBudget && (budget >= 99999 ? peak <= 60 : thrifty);
 
-    const stars = success ? (1 + (underBudget ? 1 : 0) + (efficient ? 1 : 0)) : 0;
+    // The sandbox has no ceiling to come in under, so its stars are earned on a
+    // stress margin and a par cost instead — otherwise all three would be free.
+    const isSandbox = budget >= 99999;
+    const par = this.level.par || null;
+    const stiffTarget = this.sagLimit() * SANDBOX_STIFF_FRACTION;
+    const safeMargin = sag <= stiffTarget;
+    const efficient = isSandbox
+      ? (par !== null && cost <= par)
+      : (underBudget && cost <= budget * EFFICIENCY_FRACTION);
+    const secondCriterion = isSandbox ? safeMargin : underBudget;
+
+    const stars = success ? (1 + (secondCriterion ? 1 : 0) + (efficient ? 1 : 0)) : 0;
     if (success) this.saveProgress(this.level.id, stars, cost);
 
     const criteria = [
       { won: success, label: 'Vehicle crossed safely' },
-      { won: success && underBudget, label: 'Finished under budget' },
-      { won: success && efficient, label: budget >= 99999
-          ? 'Efficient design<br>(no member over 60%)'
+      { won: success && secondCriterion, label: isSandbox
+          ? `Stiff build<br>(deck sag under ${stiffTarget.toFixed(2)} m)`
+          : 'Finished under budget' },
+      { won: success && efficient, label: isSandbox
+          ? `Beat par<br>(build it for under $${par.toLocaleString()})`
           : `Efficient design<br>(build it for under $${Math.round(budget * EFFICIENCY_FRACTION).toLocaleString()})` }
     ];
 
@@ -1672,8 +1687,8 @@ class TrussCraftApp {
           <div class="s-value" style="color:${underBudget ? 'var(--success)' : 'var(--danger)'}">$${cost.toLocaleString()}</div>
         </div>
         <div class="stat-box">
-          <div class="s-label">Budget</div>
-          <div class="s-value" style="color:var(--text-muted)">${budget >= 99999 ? '∞' : '$' + budget.toLocaleString()}</div>
+          <div class="s-label">${isSandbox ? 'Par' : 'Budget'}</div>
+          <div class="s-value" style="color:var(--text-muted)">${isSandbox ? (par ? '$' + par.toLocaleString() : '∞') : '$' + budget.toLocaleString()}</div>
         </div>
         <div class="stat-box">
           <div class="s-label">Peak stress</div>
@@ -1709,8 +1724,12 @@ class TrussCraftApp {
                    <b>bending</b> rather than working as a truss: the load has no triangulated path back to the anchors,
                    so a single line of members is carrying it in bending alone. Add diagonals between the deck joints
                    and a chord above or below them, and the same load turns into pure tension and compression.`;
-      } else if (!underBudget) {
+      } else if (!isSandbox && !underBudget) {
         verdict = `It stands, but it came in <b>$${(cost - budget).toLocaleString()} over budget</b>. Look for members carrying almost no load — those are free to delete.`;
+      } else if (isSandbox && !efficient) {
+        verdict = `It stands. You came in at <b>$${cost.toLocaleString()}</b> against a par of <b>$${par.toLocaleString()}</b>,
+          and the deck moved <b>${sag.toFixed(2)} m</b> against a stiffness target of ${stiffTarget.toFixed(2)} m.
+          Those two pull against each other: the cheapest bridge is a shallow one, and a shallow one flexes.`;
       } else if (!efficient) {
         verdict = `Solid work. Your peak member reached <b>${peak}%</b> of its capacity, so there is not much margin left. Try adding one more triangle, or trimming cost.`;
       } else {
@@ -1767,7 +1786,7 @@ class TrussCraftApp {
       const best = this.progress[lvl.id];
       const sub = best && best.cost < Infinity
         ? `${lvl.concept} · best build $${best.cost.toLocaleString()}`
-        : `${lvl.concept} · budget ${lvl.budget >= 99999 ? 'unlimited' : '$' + lvl.budget.toLocaleString()}`;
+        : `${lvl.concept} · ${lvl.budget >= 99999 ? (lvl.par ? 'par $' + lvl.par.toLocaleString() : 'no budget limit') : 'budget $' + lvl.budget.toLocaleString()}`;
       return `
         <button class="level-card ${i === this.currentLevelIdx ? 'current' : ''}" onclick="app.closeModal(); app.loadLevel(${i});">
           <div class="lc-num">${i + 1}</div>
@@ -2593,11 +2612,13 @@ class TrussCraftApp {
   updateBudget() {
     const cost = this.calculateCost();
     const budget = this.level.budget;
-    const pct = budget >= 99999 ? Math.min(100, cost / 6000 * 100) : (cost / budget) * 100;
+    // With no ceiling, the sandbox meter tracks par instead of an arbitrary scale.
+    const reference = (budget >= 99999 && this.level.par) ? this.level.par : budget;
+    const pct = reference >= 99999 ? Math.min(100, cost / 6000 * 100) : (cost / reference) * 100;
 
     const el = document.getElementById('ui-budget');
     el.innerText = '$' + cost.toLocaleString();
-    el.style.color = cost > budget ? 'var(--danger)' : 'var(--text)';
+    el.style.color = cost > reference ? 'var(--danger)' : 'var(--text)';
 
     const bar = document.getElementById('ui-budget-bar');
     bar.style.width = Math.min(100, pct) + '%';
@@ -2741,6 +2762,14 @@ class TrussCraftApp {
         text: a.overBudget
           ? `Over budget by <b>$${(a.cost - this.level.budget).toLocaleString()}</b>`
           : `Within budget — <b>$${(this.level.budget - a.cost).toLocaleString()}</b> left`
+      });
+    } else if (this.level.par) {
+      const overPar = a.cost > this.level.par;
+      items.push({
+        state: overPar ? 'warn' : (a.memberCount > 0 ? 'done' : ''),
+        text: overPar
+          ? `Over par by <b>$${(a.cost - this.level.par).toLocaleString()}</b> — still buildable, but no third star`
+          : `Under par — <b>$${(this.level.par - a.cost).toLocaleString()}</b> to spare`
       });
     }
 

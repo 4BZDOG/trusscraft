@@ -28,10 +28,20 @@ No install, no build step, no dependencies — one HTML file that runs offline.
 3. **Suspension Towers** — the water is too deep for piers, so *nothing may be built below the deck*. Forces a through truss, and is the place to discover that a cable which goes slack carries nothing.
 4. **Heavy Freight** — a 6.5 t truck on a mean budget. All-timber is flattened, all-steel busts the budget; the student has to choose between building deeper and building stronger.
 5. **The Cantilever** — the far cliff is crumbling, so *no anchor may be fixed to it*. The bridge has to hold its own far end up, and the forces come out backwards: the top chord is pulled, the bottom pushed.
-6. **The Long Haul** — 20 metres, with a rock stack mid-river offering anchors. A single span will stand; using the stack costs about a third less. Teaches why long bridges march across on piers.
-7. **Engineering Sandbox** — open build, no budget, no restrictions.
+6. **The Long Haul** — 20 metres, with a rock stack mid-river offering anchors. A single span will stand; landing on the stack is about 6% cheaper and 15% stiffer, and the budget is set so only the tidier answer takes full marks.
+7. **Engineering Sandbox** — open build, no ceiling, but a par cost *and* a stiffness target that pull against each other.
 
-Each level is winnable in more than one way, and level 4 has at least three distinct three-star solutions.
+Every level is winnable in more than one way. Budgets are set from measured data
+rather than guessed: for each level the design space was searched for the cheapest
+structure that actually survives, and the three-star threshold sits just above it —
+so a working bridge is easy, an efficient one is not.
+
+| Level | Cheapest surviving design | Three-star target |
+|---|---|---|
+| 4 Heavy Freight | $2,555 | $2,813 |
+| 5 The Cantilever | $1,833 | $2,250 |
+| 6 The Long Haul | $3,428 | $3,600 |
+| 7 Sandbox | $3,225 | $3,550 + stiffness |
 
 ## Controls
 
