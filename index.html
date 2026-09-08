@@ -1481,7 +1481,10 @@ class TrussCraftApp {
     const budget = this.level.budget;
     const underBudget = cost <= budget;
     const peak = Math.min(100, Math.round(this.maxStressObserved * 100));
-    const sag = this.maxSag || 0;
+    // After the slab cracks the deck keeps falling, so the peak figure is meaningless.
+    // Report the deflection at the moment it failed, which is what the limit refers to.
+    const crackedAt = this.firstFailure && this.firstFailure.type === 'deflection' ? this.firstFailure.sag : null;
+    const sag = crackedAt !== null ? crackedAt : (this.maxSag || 0);
     const stiff = sag < this.sagLimit();
     const thrifty = budget < 99999 && cost <= budget * EFFICIENCY_FRACTION;
     const efficient = underBudget && (budget >= 99999 ? peak <= 60 : thrifty);
@@ -1523,7 +1526,7 @@ class TrussCraftApp {
           <div style="font-size:0.6rem;color:var(--text-dim);margin-top:2px;">${analysis.biggestGap.toFixed(1)} m missing</div>
         </div>` : `
         <div class="stat-box">
-          <div class="s-label">Max deck sag</div>
+          <div class="s-label">${crackedAt !== null ? 'Sag at failure' : 'Max deck sag'}</div>
           <div class="s-value" style="color:${stiff ? 'var(--success)' : 'var(--danger)'}">${sag.toFixed(2)} m</div>
           <div style="font-size:0.6rem;color:var(--text-dim);margin-top:2px;">limit ${this.sagLimit().toFixed(2)} m</div>
         </div>`}
