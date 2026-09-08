@@ -794,6 +794,7 @@
         <span>Cable <kbd>4</kbd></span><small>$45/m · tension only</small>
       </button>
       <div class="divider"></div>
+      <button class="btn" id="btn-move" title="Move a joint — every member attached to it resizes">✥ Move <kbd>M</kbd></button>
       <button class="btn" id="btn-erase" title="Eraser — click a member or joint to remove it">🧹 Erase <kbd>E</kbd></button>
       <button class="btn" id="btn-undo" title="Undo">↩ Undo</button>
       <button class="btn" id="btn-redo" title="Redo">↪ Redo</button>
@@ -1207,7 +1208,8 @@ class TrussCraftApp {
     this.showVectors = false;
     this.mode = 'build';            // 'build' | 'test'
     this.activeMat = 'road';
-    this.activeTool = 'draw';       // 'draw' | 'erase'
+    this.activeTool = 'draw';       // 'draw' | 'erase' | 'move'
+    this.moveState = null;
 
     // Model entities
     this.nodes = [];
@@ -1386,6 +1388,7 @@ class TrussCraftApp {
 
   // ---------- level lifecycle ----------
   loadLevel(idx) {
+    this.moveState = null;
     this.currentLevelIdx = idx;
     this.level = LEVELS[idx];
     this.mode = 'build';
@@ -1858,7 +1861,18 @@ class TrussCraftApp {
         </div>
 
         <div class="help-section">
-          <div class="help-h">⑥ Material properties</div>
+          <div class="help-h">⑥ Changing a design without rebuilding it</div>
+          <div class="help-p">
+            Pick the <b>✥ Move</b> tool and drag any joint. Every member attached to it stretches or
+            shortens to follow, the new lengths appear as you drag, and the cost updates live. This is the
+            quickest way to make a truss <b>deeper</b> — often cheaper than upgrading members to steel —
+            or to pull a joint back inside the 4.2 m member limit. Anchor points are bolted down and
+            cannot be moved.
+          </div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-h">⑦ Material properties</div>
           <table class="mat-table">
             <tr><th>Material</th><th class="num">Cost/m</th><th class="num">Max tension</th><th class="num">Max compression</th></tr>
             ${matRows}
@@ -1869,9 +1883,10 @@ class TrussCraftApp {
         </div>
 
         <div class="help-section">
-          <div class="help-h">⑦ Controls</div>
+          <div class="help-h">⑧ Controls</div>
           <div class="key-list">
             <div><span>Materials</span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></div>
+            <div><span>Move a joint</span><kbd>M</kbd></div>
             <div><span>Eraser</span><kbd>E</kbd></div>
             <div><span>Run / stop test</span><kbd>Space</kbd></div>
             <div><span>Force vectors</span><kbd>V</kbd></div>
@@ -2033,6 +2048,19 @@ class TrussCraftApp {
 
       if (this.activeTool === 'erase') { this.eraseAt(w.x, w.y); return; }
 
+      if (this.activeTool === 'move') {
+        const target = this.findNearestNode(w.x, w.y, 0.5);
+        if (!target) {
+          this.toast('info', '✥', 'Click and drag a <b>joint</b> to move it. Every member attached resizes with it.', 3200);
+        } else if (target.fixed) {
+          this.toast('warn', '⚓', 'Anchor points are bolted to the rock — they cannot be moved.', 3000);
+          audio.playError();
+        } else {
+          this.beginMove(target);
+        }
+        return;
+      }
+
       const existing0 = this.findNearestNode(w.x, w.y, 0.45);
       if (!existing0 && this.zoneViolation(this.snapGrid(w.x, w.y).y)) {
         const c = this.level.constraint;
@@ -2067,6 +2095,13 @@ class TrussCraftApp {
       this.mouseWorld = this.toWorld(sx, sy);
       this.mouseOnCanvas = true;
 
+      if (this.moveState) {
+        this.updateMove(this.mouseWorld.x, this.mouseWorld.y);
+        this.updateCursor();
+        document.getElementById('hud-tooltip').style.display = 'none';
+        return;
+      }
+
       this.hoverNode = this.findNearestNode(this.mouseWorld.x, this.mouseWorld.y, 0.4);
       this.hoverMember = this.findNearestMember(this.mouseWorld.x, this.mouseWorld.y, 0.25);
       this.renderTooltip(sx, sy);
@@ -2074,7 +2109,10 @@ class TrussCraftApp {
     };
 
     const onPointerUp = () => {
-      if (this.mode === 'test') { this.dragStartNode = null; return; }
+      if (this.mode === 'test') { this.dragStartNode = null; this.cancelMove(); return; }
+
+      if (this.moveState) { this.finishMove(); this.updateCursor(); return; }
+
       if (!this.dragStartNode) return;
 
       const start = this.dragStartNode;
@@ -2132,6 +2170,7 @@ class TrussCraftApp {
     this.canvas.addEventListener('mousemove', onPointerMove);
     this.canvas.addEventListener('mouseleave', () => {
       this.mouseOnCanvas = false;
+      if (this.moveState) this.finishMove();
       this.hoverMember = null;
       this.hoverNode = null;
       document.getElementById('hud-tooltip').style.display = 'none';
@@ -2154,13 +2193,16 @@ class TrussCraftApp {
         if (this.modalOpen) return;
         this.mode === 'build' ? this.startSimulation() : this.stopSimulation();
       } else if (e.key === 'Escape') {
-        if (this.coach) this.endCoach();
+        if (this.moveState) this.cancelMove();
+        else if (this.coach) this.endCoach();
         else if (this.modalOpen) this.closeModal();
       } else if (['1', '2', '3', '4'].includes(e.key)) {
         const mats = ['road', 'wood', 'steel', 'cable'];
         this.selectMaterial(mats[+e.key - 1]);
       } else if (k === 'e') {
         this.toggleEraser();
+      } else if (k === 'm') {
+        this.toggleMove();
       } else if (k === 'v') {
         document.getElementById('btn-vectors').click();
       } else if (e.key === '?' || k === 'h') {
@@ -2174,6 +2216,7 @@ class TrussCraftApp {
     });
 
     document.getElementById('btn-erase').addEventListener('click', () => this.toggleEraser());
+    document.getElementById('btn-move').addEventListener('click', () => this.toggleMove());
     document.getElementById('btn-undo').addEventListener('click', () => this.undo());
     document.getElementById('btn-redo').addEventListener('click', () => this.redo());
 
@@ -2220,31 +2263,33 @@ class TrussCraftApp {
     });
   }
 
-  selectMaterial(mat) {
-    if (!MATERIALS[mat]) return;
+  setTool(tool) {
     audio.init();
-    this.activeMat = mat;
-    this.activeTool = 'draw';
-    document.querySelectorAll('.mat-btn').forEach(b => b.classList.toggle('active', b.dataset.mat === mat));
-    document.getElementById('btn-erase').classList.remove('active');
+    this.activeTool = tool;
+    this.cancelMove();
+    document.getElementById('btn-erase').classList.toggle('active', tool === 'erase');
+    document.getElementById('btn-move').classList.toggle('active', tool === 'move');
+    document.querySelectorAll('.mat-btn').forEach(b =>
+      b.classList.toggle('active', tool === 'draw' && b.dataset.mat === this.activeMat));
     this.updateCursor();
     audio.playUI();
   }
 
-  toggleEraser() {
-    audio.init();
-    this.activeTool = this.activeTool === 'erase' ? 'draw' : 'erase';
-    const on = this.activeTool === 'erase';
-    document.getElementById('btn-erase').classList.toggle('active', on);
-    if (on) document.querySelectorAll('.mat-btn').forEach(b => b.classList.remove('active'));
-    else document.querySelectorAll('.mat-btn').forEach(b => b.classList.toggle('active', b.dataset.mat === this.activeMat));
-    this.updateCursor();
-    audio.playUI();
+  selectMaterial(mat) {
+    if (!MATERIALS[mat]) return;
+    this.activeMat = mat;
+    this.setTool('draw');
   }
+
+  toggleEraser() { this.setTool(this.activeTool === 'erase' ? 'draw' : 'erase'); }
+  toggleMove()   { this.setTool(this.activeTool === 'move'  ? 'draw' : 'move'); }
 
   updateCursor() {
     if (this.mode === 'test') { this.canvas.style.cursor = 'default'; return; }
-    if (this.activeTool === 'erase') {
+    if (this.moveState) { this.canvas.style.cursor = 'grabbing'; return; }
+    if (this.activeTool === 'move') {
+      this.canvas.style.cursor = (this.hoverNode && !this.hoverNode.fixed) ? 'grab' : 'default';
+    } else if (this.activeTool === 'erase') {
       this.canvas.style.cursor = (this.hoverMember || (this.hoverNode && !this.hoverNode.fixed)) ? 'pointer' : 'not-allowed';
     } else {
       this.canvas.style.cursor = this.hoverNode ? 'grab' : 'crosshair';
@@ -2360,6 +2405,93 @@ class TrussCraftApp {
     this.members.push(member);
     audio.playPlace();
     return member;
+  }
+
+  // ---------- moving a joint (resizes every member attached to it) ----------
+
+  /** Why this joint may not sit at (x, y), or null if it may. */
+  moveBlockedReason(node, x, y) {
+    if (this.zoneViolation(y)) return this.level.constraint.blurb;
+
+    for (const other of this.nodes) {
+      if (other === node) continue;
+      if (Math.hypot(other.x - x, other.y - y) < 0.3) return 'Another joint is already there';
+    }
+
+    for (const m of this.members) {
+      if (m.broken) continue;
+      const isN1 = m.n1 === node, isN2 = m.n2 === node;
+      if (!isN1 && !isN2) continue;
+      const other = isN1 ? m.n2 : m.n1;
+      const len = Math.hypot(other.x - x, other.y - y);
+      if (len > MAX_STRUT_LENGTH) return `That stretches a member to ${len.toFixed(1)} m (max ${MAX_STRUT_LENGTH} m)`;
+      if (len < MIN_STRUT_LENGTH) return `That squashes a member to ${len.toFixed(1)} m (min ${MIN_STRUT_LENGTH} m)`;
+    }
+    return null;
+  }
+
+  beginMove(node) {
+    this.pendingSnapshot = this.snapshotState();
+    this.createdStartNode = null;
+    this.moveState = {
+      node,
+      origX: node.x, origY: node.y,
+      origCost: this.calculateCost(),
+      lens: this.members
+        .filter(m => !m.broken && (m.n1 === node || m.n2 === node))
+        .map(m => ({ m, origLen: m.restLen })),
+      reason: null
+    };
+    audio.playClick();
+  }
+
+  /** Drag the joint live so the attached members visibly re-length under the cursor. */
+  updateMove(x, y) {
+    const s = this.moveState;
+    if (!s) return;
+    const snap = this.snapGrid(x, y);
+    s.reason = this.moveBlockedReason(s.node, snap.x, snap.y);
+    s.node.x = snap.x; s.node.y = snap.y;
+    s.node.oldX = snap.x; s.node.oldY = snap.y;
+    s.lens.forEach(({ m }) => {
+      m.restLen = Math.hypot(m.n2.x - m.n1.x, m.n2.y - m.n1.y);
+    });
+    this.updateBudget();
+  }
+
+  cancelMove() {
+    const s = this.moveState;
+    if (!s) return;
+    s.node.x = s.origX; s.node.y = s.origY;
+    s.node.oldX = s.origX; s.node.oldY = s.origY;
+    s.lens.forEach(({ m, origLen }) => { m.restLen = origLen; });
+    this.moveState = null;
+    this.pendingSnapshot = null;
+    this.updateBudget();
+    this.markDirty();
+  }
+
+  finishMove() {
+    const s = this.moveState;
+    if (!s) return;
+    const moved = s.node.x !== s.origX || s.node.y !== s.origY;
+
+    if (s.reason) {
+      this.toast('bad', '⛔', s.reason + '.', 3600);
+      audio.playError();
+      this.cancelMove();
+      return;
+    }
+    if (!moved) { this.cancelMove(); return; }
+
+    const delta = this.calculateCost() - s.origCost;
+    this.moveState = null;
+    this.commitOrRollback(true);
+    this.markDirty();
+    audio.playPlace();
+    if (delta !== 0) {
+      this.toast('info', '✥', `Joint moved — cost ${delta > 0 ? 'up' : 'down'} <b>$${Math.abs(delta).toLocaleString()}</b>.`, 2600);
+    }
   }
 
   eraseAt(x, y) {
@@ -2481,7 +2613,8 @@ class TrussCraftApp {
     this.members.forEach(m => { if (!m.broken) union(idx.get(m.n1), idx.get(m.n2)); });
     const anchoredRoots = new Set();
     this.nodes.forEach((n, i) => { if (n.fixed) anchoredRoots.add(find(i)); });
-    const floating = this.nodes.filter((n, i) => !n.fixed && !anchoredRoots.has(find(i))).length;
+    const floatingNodes = this.nodes.filter((n, i) => !n.fixed && !anchoredRoots.has(find(i)));
+    const floating = floatingNodes.length;
 
     // 3. Deck joints with no diagonal bracing behave like a plank, not a truss.
     let unbraced = 0;
@@ -2494,8 +2627,17 @@ class TrussCraftApp {
     });
 
     // 4. Loose ends and buckling-prone struts
-    const dangling = this.nodes.filter(n =>
-      !n.fixed && this.members.filter(m => !m.broken && (m.n1 === n || m.n2 === n)).length === 1).length;
+    // A joint holding a single member is a loose end: that member is carrying nothing,
+    // it is just dead weight hanging off the structure.
+    const looseNodes = this.nodes.filter(n =>
+      !n.fixed && this.members.filter(m => !m.broken && (m.n1 === n || m.n2 === n)).length === 1);
+    const dangling = looseNodes.length;
+
+    // Members that reach a loose end or sit in a floating island do no useful work.
+    const floatingSet = new Set(floatingNodes);
+    const looseSet = new Set(looseNodes);
+    const deadMembers = this.members.filter(m => !m.broken &&
+      (looseSet.has(m.n1) || looseSet.has(m.n2) || floatingSet.has(m.n1) || floatingSet.has(m.n2)));
     const longStruts = this.members.filter(m => !m.broken && m.mat !== 'cable' && m.restLen > 3.0).length;
     const woodLen = this.members.filter(m => m.mat === 'wood').reduce((s, m) => s + m.restLen, 0);
     const totalLen = this.members.reduce((s, m) => s + m.restLen, 0) || 1;
@@ -2510,7 +2652,7 @@ class TrussCraftApp {
       roadOnly: live.length > 0 && bracing.length === 0,
       overBudget: cost > this.level.budget,
       deckSpans, biggestGap, coveredPct: clamp(covered / gapWidth, 0, 1),
-      floating, unbraced, dangling, longStruts,
+      floating, floatingNodes, looseNodes, deadMembers, unbraced, dangling, longStruts,
       woodShare: woodLen / totalLen,
       memberCount: this.members.filter(m => !m.broken).length,
       ready: deckSpans && floating === 0
@@ -2553,6 +2695,13 @@ class TrussCraftApp {
           : `${a.unbraced} deck joint${a.unbraced > 1 ? 's need' : ' needs'} diagonal bracing`
       }
     ];
+
+    if (a.dangling > 0) {
+      items.push({
+        state: 'warn',
+        text: `${a.dangling} loose end${a.dangling > 1 ? 's' : ''} <b>!</b> — connected at one end only, so ${a.dangling > 1 ? 'they carry' : 'it carries'} nothing`
+      });
+    }
 
     if (!budgetUnlimited) {
       items.push({
@@ -2615,9 +2764,21 @@ class TrussCraftApp {
       tip.style.display = 'block';
       tip.style.left = `${sx}px`;
       tip.style.top = `${sy}px`;
+      const a = this.analysis;
+      const isFloating = a && a.floatingNodes && a.floatingNodes.includes(n);
+      const isLoose = count === 1;
+
+      let fault = '';
+      if (isFloating) {
+        fault = `<div class="tt-row" style="color:#fca5a5">⚠ <b>Not connected to any anchor.</b><br>This whole section will fall when tested.</div>`;
+      } else if (isLoose) {
+        fault = `<div class="tt-row" style="color:#fcd34d">! <b>Loose end.</b><br>Only one member reaches this joint, so it<br>carries no load. Connect it to something else,<br>or erase it.</div>`;
+      }
+
       tip.innerHTML = n.fixed
         ? `<div class="tt-head">⚓ Anchor point</div><div class="tt-row">Bolted to bedrock — carries any load</div>`
-        : `<div class="tt-head">Joint</div><div class="tt-row"><span>${count}</span> member${count === 1 ? '' : 's'} connected${count < 2 ? ' — loose end' : ''}</div>`;
+        : `<div class="tt-head">Joint</div>
+           <div class="tt-row"><span>${count}</span> member${count === 1 ? '' : 's'} connected</div>${fault}`;
       return;
     }
 
@@ -2629,6 +2790,7 @@ class TrussCraftApp {
   // ==========================================================
   startSimulation() {
     audio.init();
+    if (this.moveState) this.finishMove();
     const a = this.analysis = this.analyze();
 
     if (this.members.length === 0) {
@@ -2649,6 +2811,8 @@ class TrussCraftApp {
       this.toast('warn', '⚠', `The roadway leaves a <b>${a.biggestGap.toFixed(1)} m</b> gap. Testing anyway — watch what happens.`, 4200);
     } else if (a.floating > 0) {
       this.toast('warn', '⚠', `${a.floating} joint${a.floating > 1 ? 's are' : ' is'} not connected to any anchor. That section will simply fall.`, 4200);
+    } else if (a.dangling > 0) {
+      this.toast('warn', '⚠', `${a.dangling} loose end${a.dangling > 1 ? 's are' : ' is'} connected at one end only and ${a.dangling > 1 ? 'carry' : 'carries'} no load — you are paying for ${a.dangling > 1 ? 'them' : 'it'} for nothing.`, 4400);
     } else if (a.unbraced > 2) {
       this.toast('warn', '⚠', `${a.unbraced} deck joints have no diagonal bracing — expect heavy sagging.`, 4200);
     }
@@ -3574,8 +3738,18 @@ class TrussCraftApp {
   }
 
   drawMembers(ctx, reflection = false) {
+    const dead = (this.mode === 'build' && !reflection && this.analysis)
+      ? new Set(this.analysis.deadMembers) : null;
     for (const m of this.members) {
       if (m.broken) continue;
+      if (dead && dead.has(m)) {
+        // Connected at one end only, or adrift from every anchor: carries nothing.
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        this.drawMember(ctx, m, reflection);
+        ctx.restore();
+        continue;
+      }
       this.drawMember(ctx, m, reflection);
     }
     if (!reflection && this.mode === 'test') this.drawStressLabels(ctx);
@@ -3833,15 +4007,142 @@ class TrussCraftApp {
         }
       }
 
+      // Every free joint is a handle while the move tool is active
+      if (this.activeTool === 'move' && this.mode !== 'test' && !n.fixed && !this.moveState) {
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 9 * sc, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
       // Hover ring
       if (this.hoverNode === n && this.mode !== 'test') {
-        ctx.strokeStyle = this.activeTool === 'erase' ? '#ef4444' : '#38bdf8';
+        ctx.strokeStyle = this.activeTool === 'erase' ? '#ef4444'
+                        : this.activeTool === 'move' ? '#22c55e' : '#38bdf8';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(p.x, p.y, (n.fixed ? 11 : 9) * sc + Math.sin(this.time * 5) * 1.2, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
+  }
+
+  /**
+   * Mark joints that are not properly connected. A loose end carries no load, and a
+   * joint with no path to an anchor will simply fall — both are invisible otherwise.
+   */
+  drawConnectionWarnings(ctx) {
+    if (this.mode !== 'build' || !this.analysis) return;
+    const a = this.analysis;
+    if (!a.looseNodes.length && !a.floatingNodes.length) return;
+
+    const sc = this.PPM / 40;
+    const pulse = 0.55 + 0.45 * Math.sin(this.time * 4);
+    const floatingSet = new Set(a.floatingNodes);
+
+    const mark = (n, color, glyph) => {
+      const p = this.toScreen(n.x, n.y);
+      const r = 11 * sc;
+
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = pulse;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + Math.sin(this.time * 4) * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+
+      // Badge sitting above the joint
+      const bx = p.x + r * 0.95, by = p.y - r * 0.95;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(bx, by, 7 * sc, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0b1220';
+      ctx.font = `700 ${Math.max(8, 10 * sc)}px -apple-system, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(glyph, bx, by + 0.5);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    };
+
+    // Floating is the more serious fault, so it wins when a joint is both.
+    for (const n of a.looseNodes) if (!floatingSet.has(n)) mark(n, '#f59e0b', '!');
+    for (const n of a.floatingNodes) mark(n, '#ef4444', '⚠');
+  }
+
+  /** Live readout while a joint is being dragged: new lengths, validity, cost delta. */
+  drawMovePreview(ctx) {
+    const s = this.moveState;
+    if (!s) return;
+    const sc = this.PPM / 40;
+    const ok = !s.reason;
+    const colour = ok ? '#38bdf8' : '#ef4444';
+    const p = this.toScreen(s.node.x, s.node.y);
+
+    // Where it came from
+    const o = this.toScreen(s.origX, s.origY);
+    ctx.strokeStyle = 'rgba(148,163,184,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, 5 * sc, 0, Math.PI * 2);
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Grab ring
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 12 * sc + Math.sin(this.time * 6) * 1.2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // New length on each attached member
+    ctx.font = `600 ${Math.max(9, 10 * sc)}px ui-monospace, Menlo, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const { m } of s.lens) {
+      const len = Math.hypot(m.n2.x - m.n1.x, m.n2.y - m.n1.y);
+      const bad = len > MAX_STRUT_LENGTH || len < MIN_STRUT_LENGTH;
+      const mx = this.sx((m.n1.x + m.n2.x) / 2);
+      const my = this.sy((m.n1.y + m.n2.y) / 2);
+      const label = `${len.toFixed(1)}m`;
+      const w = ctx.measureText(label).width + 10;
+      ctx.fillStyle = bad ? 'rgba(127,29,29,0.95)' : 'rgba(10,17,32,0.9)';
+      ctx.beginPath();
+      ctx.roundRect(mx - w / 2, my - 8, w, 16, 4);
+      ctx.fill();
+      ctx.strokeStyle = bad ? '#ef4444' : '#38bdf855';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = bad ? '#fecaca' : '#e2e8f0';
+      ctx.fillText(label, mx, my);
+    }
+
+    // Status chip above the joint
+    const delta = this.calculateCost() - s.origCost;
+    const chip = s.reason
+      ? `⛔ ${s.reason}`
+      : (delta === 0 ? 'drag to resize' : `${delta > 0 ? '+' : '−'}$${Math.abs(delta).toLocaleString()}`);
+    const cw = ctx.measureText(chip).width + 16;
+    ctx.fillStyle = ok ? (delta > 0 ? 'rgba(120,53,15,0.95)' : 'rgba(6,46,31,0.95)') : 'rgba(127,29,29,0.96)';
+    ctx.beginPath();
+    ctx.roundRect(p.x - cw / 2, p.y - 34 * sc, cw, 18, 5);
+    ctx.fill();
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(chip, p.x, p.y - 25 * sc);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
   }
 
   drawGhostStrut(ctx) {
@@ -4195,8 +4496,10 @@ class TrussCraftApp {
     this.drawZone(ctx);
     this.drawGrid(ctx);
     this.drawMembers(ctx);
+    this.drawConnectionWarnings(ctx);
     this.drawGhostStrut(ctx);
     this.drawNodes(ctx);
+    this.drawMovePreview(ctx);
     this.drawVehicle(ctx);
     this.drawParticles(ctx);
     this.drawShockwaves(ctx);
