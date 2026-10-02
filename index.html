@@ -869,10 +869,10 @@
     </div>
 
     <div id="hud-tooltip"></div>
-    <div id="toasts"></div>
+    <div id="toasts" aria-live="polite"></div>
 
     <div class="modal-backdrop" id="modal">
-      <div class="modal-card">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-eyebrow" id="modal-eyebrow">Mission brief</div>
         <h3 class="modal-title" id="modal-title">Bridge brief</h3>
         <div class="modal-body" id="modal-body"></div>
@@ -1053,6 +1053,7 @@ const MATERIALS = {
 const MAX_STRUT_LENGTH = 4.2;   // metres
 const MIN_STRUT_LENGTH = 0.5;   // metres
 const EULER_REF_LEN    = 2.4;   // reference length for buckling scaling
+const EULER_EXPONENT   = 1.8;   // pure Euler buckling is 2 (load ∝ 1/L²); slightly gentler suits imperfect members
 const GRID_SNAP        = 0.5;   // metres
 const ELASTIC_MODULUS  = 200000;
 const RISK_THRESHOLD   = 0.75;  // stress fraction that counts as "at risk"
@@ -1060,10 +1061,20 @@ const SAG_SPAN_RATIO   = 40;    // deck cracks past a deflection of span / this
 const SAG_WARN_FRACTION = 0.55; // fraction of that limit at which the deck starts groaning
 const EFFICIENCY_FRACTION = 0.75; // spend under this share of budget to earn the third star
 const SANDBOX_STIFF_FRACTION = 0.6; // sandbox stiffness star: deflect under this share of the limit
+const UNLIMITED_BUDGET = 99999; // a level budget at or above this means "no ceiling" (the sandbox)
+const STUCK_TIMEOUT    = 40;    // simulated seconds before a stalled vehicle ends the test
+
+/** Compression a member can carry before it buckles; falls steeply with length. */
+function bucklingCapacity(matKey, length) {
+  return MATERIALS[matKey].maxComp * Math.min(1, Math.pow(EULER_REF_LEN / length, EULER_EXPONENT));
+}
 
 // ============================================================
 //  CURRICULUM LEVELS
 // ============================================================
+// Array order is the play order and the numbers in the titles. `id` is the key
+// saved progress is stored under, so it must never change once shipped — which is
+// why the ids are not in sequence (the Cantilever and Long Haul were added later).
 const LEVELS = [
   {
     id: 1,
@@ -1164,7 +1175,7 @@ const LEVELS = [
     desc: "An open laboratory with anchor points high, low and level. Build a Warren truss, a Pratt truss, an arch, a suspension span or a cantilever, and compare how the forces redistribute. No budget ceiling — instead there is a <b>par of $3,550</b> and a <b>stiffness target</b>. The cheapest bridge that survives this crossing costs $3,225, so par is tight, and the cheapest bridge is far too floppy to earn the other star.",
     concept: "Free experimentation",
     tip: "The two targets here genuinely pull against each other. Cost is simply total material, so the cheapest bridge is a <b>shallow</b> one with wide bays — and a shallow truss is a floppy one, which blows the stiffness target. Getting both stars means finding the depth that is just deep enough. Note that stress is almost never your problem in this engine: deflection is what fails you.",
-    budget: 99999,
+    budget: UNLIMITED_BUDGET,
     par: 3550,
     anchors: [
       { x: 3, y: 7, fixed: true },  { x: 21, y: 7, fixed: true },
@@ -1175,6 +1186,9 @@ const LEVELS = [
     carMass: 2000
   }
 ];
+
+const isUnlimited = (level) => level.budget >= UNLIMITED_BUDGET;
+const spanOf = (level) => level.terrain.rightBank - level.terrain.leftBank;
 
 // Older Safari lacks roundRect — supply a minimal equivalent.
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -1255,11 +1269,22 @@ class TrussCraftApp {
     this.maxStressObserved = 0;
     this.firstFailure = null;
     this.brokenCount = 0;
-    this.testStartTime = 0;
+    this.testElapsed = 0;           // simulated seconds since the test began
+    this.maxSag = 0;
+    this.currentSag = 0;
+    this.sagWarned = false;
+    this.deckCracked = false;
     this.resultShown = false;
+    this.modalOpen = false;
+    this.coach = null;
+    this.hintsShown = {};
+    this.pendingSnapshot = null;
+    this.createdStartNode = null;
+    this.lastRumble = -1;
 
     // Presentation state
     this.time = 0;
+    this.frameDt = 0;
     this.shake = 0;
     this.slowmo = 0;
     this.flash = 0;
@@ -1383,6 +1408,8 @@ class TrussCraftApp {
       x: n.x, y: n.y, oldX: n.x, oldY: n.y,
       fixed: n.fixed, mass: n.fixed ? 0 : 5
     }));
+    this.hoverNode = null;       // the objects they pointed at no longer exist
+    this.hoverMember = null;
     this.members = snapshot.members.map(m => {
       const n1 = this.nodes[m.n1Idx];
       const n2 = this.nodes[m.n2Idx];
@@ -1403,9 +1430,12 @@ class TrussCraftApp {
     document.getElementById('btn-clear').disabled = disabled || this.members.length === 0;
   }
 
+  /** True while a drag or joint move is in progress and holds references to live nodes. */
+  isEditing() { return !!(this.dragStartNode || this.moveState); }
+
   undo() {
     if (this.mode === 'test') return this.toast('warn', '⏸', 'Return to design mode first.');
-    if (this.undoStack.length === 0) return;
+    if (this.undoStack.length === 0 || this.isEditing()) return;
     this.redoStack.push(this.snapshotState());
     this.restoreSnapshot(this.undoStack.pop());
     this.refreshHistoryButtons();
@@ -1413,7 +1443,7 @@ class TrussCraftApp {
   }
 
   redo() {
-    if (this.mode === 'test' || this.redoStack.length === 0) return;
+    if (this.mode === 'test' || this.redoStack.length === 0 || this.isEditing()) return;
     this.undoStack.push(this.snapshotState());
     this.restoreSnapshot(this.redoStack.pop());
     this.refreshHistoryButtons();
@@ -1421,8 +1451,32 @@ class TrussCraftApp {
   }
 
   // ---------- level lifecycle ----------
+  /** Menu entry point: unlock audio (needs a user gesture) and jump to a level. */
+  switchLevel(idx) {
+    audio.init();
+    this.loadLevel(idx);
+  }
+
+  /** Clear every transient effect so nothing from a test leaks into the next screen. */
+  resetPresentation() {
+    this.particles = [];
+    this.shockwaves = [];
+    this.shake = 0;
+    this.slowmo = 0;
+    this.zoom = 0;
+    this.flash = 0;
+    this.cascade = 0;
+  }
+
   loadLevel(idx) {
+    audio.stopEngine();              // a test may still be running (Levels is reachable mid-test)
     this.moveState = null;
+    this.dragStartNode = null;
+    this.hoverNode = null;
+    this.hoverMember = null;
+    this.pendingSnapshot = null;
+    this.createdStartNode = null;
+    document.getElementById('hud-tooltip').style.display = 'none';
     this.currentLevelIdx = idx;
     this.level = LEVELS[idx];
     this.mode = 'build';
@@ -1441,7 +1495,7 @@ class TrussCraftApp {
     }));
     this.members = [];
     this.vehicle = null;
-    this.particles = [];
+    this.resetPresentation();
     this.maxStressObserved = 0;
     this.firstFailure = null;
     this.brokenCount = 0;
@@ -1481,13 +1535,16 @@ class TrussCraftApp {
     this.modalOpen = false;
     // First time in, walk the student round the interface they otherwise miss.
     if (this.level.tutorial && !this.tourSeen() && !this.coach && this.members.length === 0) {
-      setTimeout(() => this.startCoach(), 260);
+      setTimeout(() => {
+        // Re-check: another modal may have opened, or the level changed, in the meantime.
+        if (!this.modalOpen && !this.coach && this.level.tutorial) this.startCoach();
+      }, 260);
     }
   }
 
   showBrief() {
     const lvl = this.level;
-    const budgetText = lvl.budget >= 99999
+    const budgetText = isUnlimited(lvl)
       ? (lvl.par ? 'Par $' + lvl.par.toLocaleString() : 'Unlimited')
       : '$' + lvl.budget.toLocaleString();
     this.showModal({
@@ -1498,7 +1555,7 @@ class TrussCraftApp {
         <p>${lvl.desc}</p>
         <div class="stat-grid">
           <div class="stat-box">
-            <div class="s-label">${lvl.budget >= 99999 && lvl.par ? 'Target' : 'Budget'}</div>
+            <div class="s-label">${isUnlimited(lvl) && lvl.par ? 'Target' : 'Budget'}</div>
             <div class="s-value" style="color:var(--accent)">${budgetText}</div>
           </div>
           <div class="stat-box">
@@ -1507,7 +1564,7 @@ class TrussCraftApp {
           </div>
           <div class="stat-box">
             <div class="s-label">Gap to cross</div>
-            <div class="s-value">${(lvl.terrain.rightBank - lvl.terrain.leftBank).toFixed(0)} m</div>
+            <div class="s-value">${spanOf(lvl).toFixed(0)} m</div>
           </div>
         </div>
         ${lvl.constraint ? `
@@ -1567,14 +1624,14 @@ class TrussCraftApp {
               between members instead of bending a single long span.`;
     }
     if (f.type === 'deflection') {
-      const ratio = Math.max(1, Math.round((a ? (this.level.terrain.rightBank - this.level.terrain.leftBank) : 8) / f.sag));
+      const ratio = Math.max(1, Math.round(spanOf(this.level) / f.sag));
       return `The <b>deck slab cracked</b>. It bent <b>${f.sag.toFixed(2)} m</b> where it is only rated to
               ${f.limit.toFixed(2)} m — about 1 part in ${ratio} of the span, when real road bridges are held
               to nearer 1 in 250.<br><br>
               A flat line of roadway has <b>nothing to stop it bending</b>. All it can do is stretch into a
               shallow curve and hang there like a rope, and roadway is not built to work that way.
               The fix is not more roadway or stronger roadway — it is to give the load
-              <b>another path back to the anchors</b>. Add a chord of ${'<b>Wood</b>'} or ${'<b>Steel</b>'} above
+              <b>another path back to the anchors</b>. Add a chord of <b>Wood</b> or <b>Steel</b> above
               or below the deck and tie it to each deck joint with diagonals. The triangles you make turn
               bending into simple stretching and squashing, and the sag figure drops by a factor of ten or more.`;
     }
@@ -1585,8 +1642,8 @@ class TrussCraftApp {
       if (f.len > 2.6) {
         return `The first failure was a <b>${len} m ${mat} member in compression</b>, and at that length
                 it <b>buckled</b> — it bowed out sideways rather than being crushed. Buckling resistance
-                falls with the square of length, so a ${len} m strut is only about
-                ${(Math.pow(EULER_REF_LEN / f.len, 2)).toFixed(2)}× as strong as a ${EULER_REF_LEN} m one.
+                falls roughly with the square of length, so a ${len} m strut is only about
+                ${(bucklingCapacity(f.mat, f.len) / MATERIALS[f.mat].maxComp).toFixed(2)}× as strong as a ${EULER_REF_LEN} m one.
                 <b>Split it into two shorter struts</b> with a joint in the middle, braced sideways by a triangle.`;
       }
       return `The first failure was a short <b>${len} m ${mat} member crushed in compression</b>. It was
@@ -1639,7 +1696,7 @@ class TrussCraftApp {
 
     // The sandbox has no ceiling to come in under, so its stars are earned on a
     // stress margin and a par cost instead — otherwise all three would be free.
-    const isSandbox = budget >= 99999;
+    const isSandbox = isUnlimited(this.level);
     const par = this.level.par || null;
     const stiffTarget = this.sagLimit() * SANDBOX_STIFF_FRACTION;
     const safeMargin = sag <= stiffTarget;
@@ -1719,7 +1776,7 @@ class TrussCraftApp {
         verdict = 'An excellent piece of engineering — safe, affordable, stiff, and with capacity in reserve.';
       } else if (!stiff) {
         verdict = `Nothing snapped, but the deck dropped <b>${sag.toFixed(2)} m</b> under the vehicle — roughly
-                   1 part in ${Math.max(1, Math.round((this.level.terrain.rightBank - this.level.terrain.leftBank) / sag))}
+                   1 part in ${Math.max(1, Math.round(spanOf(this.level) / sag))}
                    of the span. Real bridge codes allow closer to 1 in 250. A deflection like that means the deck is
                    <b>bending</b> rather than working as a truss: the load has no triangulated path back to the anchors,
                    so a single line of members is carrying it in bending alone. Add diagonals between the deck joints
@@ -1754,7 +1811,7 @@ class TrussCraftApp {
           { label: '↻ Improve design', onclick: 'app.closeModal(); app.stopSimulation();' },
           isLast
             ? { label: '🗺 Choose a level', cls: 'btn-primary', onclick: 'app.showLevels()' }
-            : { label: 'Next challenge →', cls: 'btn-primary', onclick: `app.closeModal(); app.loadLevel(${this.currentLevelIdx + 1});` }
+            : { label: 'Next challenge →', cls: 'btn-primary', onclick: `app.switchLevel(${this.currentLevelIdx + 1});` }
         ]
       });
     } else {
@@ -1786,9 +1843,9 @@ class TrussCraftApp {
       const best = this.progress[lvl.id];
       const sub = best && best.cost < Infinity
         ? `${lvl.concept} · best build $${best.cost.toLocaleString()}`
-        : `${lvl.concept} · ${lvl.budget >= 99999 ? (lvl.par ? 'par $' + lvl.par.toLocaleString() : 'no budget limit') : 'budget $' + lvl.budget.toLocaleString()}`;
+        : `${lvl.concept} · ${isUnlimited(lvl) ? (lvl.par ? 'par $' + lvl.par.toLocaleString() : 'no budget limit') : 'budget $' + lvl.budget.toLocaleString()}`;
       return `
-        <button class="level-card ${i === this.currentLevelIdx ? 'current' : ''}" onclick="app.closeModal(); app.loadLevel(${i});">
+        <button class="level-card ${i === this.currentLevelIdx ? 'current' : ''}" onclick="app.switchLevel(${i});">
           <div class="lc-num">${i + 1}</div>
           <div class="lc-main">
             <div class="lc-title">${lvl.title.replace(/^\d+\.\s*/, '')}</div>
@@ -2176,9 +2233,7 @@ class TrussCraftApp {
         const c = this.level.constraint;
         this.toast('bad', '⛔', `<b>${c.label}.</b> ${violation} — that is what makes this level different from the last one.`, 4600);
         audio.playError();
-        this.commitOrRollback(false);
-        this.cleanUnconnectedNodes();
-        this.updateBudget();
+        this.abortDrag();
         return;
       }
       let target = this.findNearestNode(snap.x, snap.y, 0.45);
@@ -2187,18 +2242,14 @@ class TrussCraftApp {
       // A tap with no drag: just leave the joint (or nothing) behind.
       if (!target && dist < MIN_STRUT_LENGTH) {
         if (dist > 0.01) this.toast('warn', '📏', `Too short — members must be at least ${MIN_STRUT_LENGTH} m.`);
-        this.commitOrRollback(false);
-        this.cleanUnconnectedNodes();
-        this.updateBudget();
+        this.abortDrag();
         return;
       }
 
       if (!target && dist > MAX_STRUT_LENGTH) {
         this.toast('bad', '📏', `That span is <b>${dist.toFixed(1)} m</b> — the longest single member is <b>${MAX_STRUT_LENGTH} m</b>. Add a joint partway along.`);
         audio.playError();
-        this.commitOrRollback(false);
-        this.cleanUnconnectedNodes();
-        this.updateBudget();
+        this.abortDrag();
         return;
       }
 
@@ -2231,25 +2282,38 @@ class TrussCraftApp {
     this.canvas.addEventListener('touchstart', (e) => { onPointerMove(e); onPointerDown(e); e.preventDefault(); }, { passive: false });
     this.canvas.addEventListener('touchmove', (e) => { onPointerMove(e); e.preventDefault(); }, { passive: false });
     window.addEventListener('touchend', onPointerUp);
+    window.addEventListener('touchcancel', () => {
+      if (this.moveState) this.cancelMove();
+      else if (this.dragStartNode) this.abortDrag();
+    });
 
     // ---- keyboard ----
     window.addEventListener('keydown', (e) => {
       const k = e.key.toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
-      if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); this.redo(); return; }
+      // A modal or the guided tour owns the keyboard: nothing behind it should change.
+      const blocked = this.modalOpen || !!this.coach;
+
+      if ((e.ctrlKey || e.metaKey) && (k === 'z' || k === 'y')) {
+        e.preventDefault();
+        if (blocked) return;
+        (k === 'y' || e.shiftKey) ? this.redo() : this.undo();
+        return;
+      }
       if (e.ctrlKey || e.metaKey) return;
 
-      if (e.key === ' ') {
-        e.preventDefault();
-        if (this.modalOpen) return;
-        this.mode === 'build' ? this.startSimulation() : this.stopSimulation();
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         if (this.moveState) this.cancelMove();
         else if (this.coach) this.endCoach();
         else if (this.modalOpen) this.closeModal();
+        return;
+      }
+      if (e.key === ' ') e.preventDefault();
+      if (blocked) return;
+
+      if (e.key === ' ') {
+        this.mode === 'build' ? this.startSimulation() : this.stopSimulation();
       } else if (['1', '2', '3', '4'].includes(e.key)) {
-        const mats = ['road', 'wood', 'steel', 'cable'];
-        this.selectMaterial(mats[+e.key - 1]);
+        this.selectMaterial(Object.keys(MATERIALS)[+e.key - 1]);
       } else if (k === 'e') {
         this.toggleEraser();
       } else if (k === 'm') {
@@ -2364,6 +2428,14 @@ class TrussCraftApp {
     this.pendingSnapshot = null;
     this.createdStartNode = null;
     this.refreshHistoryButtons();
+  }
+
+  /** Abandon a member drag: drop any speculative joint and the pending undo step. */
+  abortDrag() {
+    this.dragStartNode = null;
+    this.commitOrRollback(false);
+    this.cleanUnconnectedNodes();
+    this.updateBudget();
   }
 
   /** Immediate, specific reactions to what the student just built. */
@@ -2613,8 +2685,8 @@ class TrussCraftApp {
     const cost = this.calculateCost();
     const budget = this.level.budget;
     // With no ceiling, the sandbox meter tracks par instead of an arbitrary scale.
-    const reference = (budget >= 99999 && this.level.par) ? this.level.par : budget;
-    const pct = reference >= 99999 ? Math.min(100, cost / 6000 * 100) : (cost / reference) * 100;
+    const reference = (isUnlimited(this.level) && this.level.par) ? this.level.par : budget;
+    const pct = reference >= UNLIMITED_BUDGET ? Math.min(100, cost / 6000 * 100) : (cost / reference) * 100;
 
     const el = document.getElementById('ui-budget');
     el.innerText = '$' + cost.toLocaleString();
@@ -2655,7 +2727,7 @@ class TrussCraftApp {
       if (cursor >= t.rightBank) break;
     }
     if (cursor < t.rightBank) biggestGap = Math.max(biggestGap, t.rightBank - cursor);
-    const gapWidth = t.rightBank - t.leftBank;
+    const gapWidth = spanOf(this.level);
     const deckSpans = roadMembers.length > 0 && covered >= gapWidth - 0.26;
 
     // 2. Is every part of the structure tied back to an anchor? (union-find)
@@ -2716,7 +2788,7 @@ class TrussCraftApp {
   renderObjectives() {
     const a = this.analysis;
     if (!a) return;
-    const budgetUnlimited = this.level.budget >= 99999;
+    const budgetUnlimited = isUnlimited(this.level);
 
     const items = [
       {
@@ -2795,7 +2867,7 @@ class TrussCraftApp {
       const pct = Math.round(m.stress * 100);
       const color = stressColor(m.force, m.stress);
       const capacity = isComp
-        ? Math.round(mat.maxComp * Math.min(1, Math.pow(EULER_REF_LEN / m.restLen, 1.8)))
+        ? Math.round(bucklingCapacity(m.mat, m.restLen))
         : mat.maxTension;
 
       let stateLine;
@@ -2852,6 +2924,7 @@ class TrussCraftApp {
   startSimulation() {
     audio.init();
     if (this.moveState) this.finishMove();
+    if (this.dragStartNode) this.abortDrag();
     const a = this.analysis = this.analyze();
 
     if (this.members.length === 0) {
@@ -2884,15 +2957,12 @@ class TrussCraftApp {
     this.firstFailure = null;
     this.brokenCount = 0;
     this.resultShown = false;
-    this.testStartTime = this.time;
+    this.testElapsed = 0;
     this.maxSag = 0;
     this.currentSag = 0;
     this.sagWarned = false;
     this.deckCracked = false;
-    this.cascade = 0;
-    this.shockwaves = [];
-    this.zoom = 0;
-    this.flash = 0;
+    this.resetPresentation();
     this.members.forEach(m => { m.peak = 0; m.broken = false; });
     this.nodes.forEach(n => { n.restY = n.y; });
 
@@ -2940,13 +3010,7 @@ class TrussCraftApp {
     // Rewind to the exact structure the student had before the test ran.
     if (this.preTestState) this.restoreSnapshot(this.preTestState);
     this.vehicle = null;
-    this.particles = [];
-    this.shake = 0;
-    this.slowmo = 0;
-    this.zoom = 0;
-    this.flash = 0;
-    this.cascade = 0;
-    this.shockwaves = [];
+    this.resetPresentation();
     this.setStressMeter(0);
     this.refreshHistoryButtons();
     this.updateCursor();
@@ -3048,10 +3112,8 @@ class TrussCraftApp {
         if (force >= 0) {
           capacityRatio = force / mat.maxTension;
         } else {
-          // Euler buckling: critical load falls with the square of length.
-          const lengthFactor = Math.min(1.0, Math.pow(EULER_REF_LEN / m.restLen, 1.8));
-          const effectiveMaxComp = mat.maxComp * lengthFactor;
-          capacityRatio = Math.abs(force) / (effectiveMaxComp || 1);
+          // Euler buckling: critical load falls steeply with length.
+          capacityRatio = Math.abs(force) / (bucklingCapacity(m.mat, m.restLen) || 1);
         }
 
         m.stress = capacityRatio;
@@ -3068,13 +3130,14 @@ class TrussCraftApp {
       this.maxStressObserved = Math.max(this.maxStressObserved, peakStress);
     }
 
+    this.testElapsed += subDt * subSteps;
     this.measureSag();
     this.setStressMeter(Math.min(100, Math.round(this.maxStressObserved * 100)));
     this.updateAnalysisPanel();
 
     // Nothing has happened for a long time — the vehicle is probably stuck.
     if (this.vehicle && !this.vehicle.crashed && !this.vehicle.escaped &&
-        this.time - this.testStartTime > 40 && !this.resultShown) {
+        this.testElapsed > STUCK_TIMEOUT && !this.resultShown) {
       this.vehicle.crashed = true;
       audio.stopEngine();
       audio.playFailure();
@@ -3090,8 +3153,7 @@ class TrussCraftApp {
    * strength a real deck slab has, and is what stops a flat roadway being a bridge.
    */
   sagLimit() {
-    const t = this.level.terrain;
-    return Math.max(0.12, (t.rightBank - t.leftBank) / SAG_SPAN_RATIO);
+    return Math.max(0.12, spanOf(this.level) / SAG_SPAN_RATIO);
   }
 
   /** How far the roadway has dropped below where it was built. */
@@ -3261,7 +3323,7 @@ class TrussCraftApp {
     const sag = this.maxSag || 0;
     const limit = this.sagLimit();
     sagEl.innerText = sag.toFixed(2) + ' m';
-    sagEl.style.color = sag >= limit ? 'var(--danger)' : sag >= limit * 0.55 ? 'var(--warning)' : 'var(--success)';
+    sagEl.style.color = sag >= limit ? 'var(--danger)' : sag >= limit * SAG_WARN_FRACTION ? 'var(--warning)' : 'var(--success)';
 
     const live = this.members.filter(m => !m.broken);
     const atRisk = live.filter(m => m.stress >= RISK_THRESHOLD);
@@ -3474,7 +3536,7 @@ class TrussCraftApp {
   drawClouds(ctx) {
     ctx.save();
     for (const c of this.clouds) {
-      c.x += c.speed * 0.016;
+      c.x += c.speed * this.frameDt;
       if (this.sx(c.x) > this.viewW + 220) c.x = this.toWorld(-220, 0).x;
       const p = this.toScreen(c.x, c.y);
       const s = c.scale * this.PPM * 0.04;
@@ -4621,7 +4683,7 @@ class TrussCraftApp {
       ctx.fillStyle = 'rgba(203, 213, 225, 0.75)';
       ctx.font = '600 11px ui-monospace, Menlo, monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(`${(t.rightBank - t.leftBank).toFixed(0)} m span`, (x1 + x2) / 2, y + 15);
+      ctx.fillText(`${spanOf(this.level).toFixed(0)} m span`, (x1 + x2) / 2, y + 15);
       ctx.textAlign = 'left';
     }
   }
@@ -4675,6 +4737,7 @@ class TrussCraftApp {
     const dt = clamp((timestamp - this.lastTime) / 1000, 0, 0.05);
     this.lastTime = timestamp;
     this.time += dt;
+    this.frameDt = dt;
 
     // Presentation decay
     this.shake *= Math.pow(0.0016, dt);
