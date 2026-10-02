@@ -53,8 +53,9 @@ body {
   color: var(--accent);
   white-space: nowrap;
 }
-.brand svg { filter: drop-shadow(0 0 6px #38bdf866); }
-.brand span { color: var(--text-dim); font-weight: 400; font-size: 0.8rem; }
+.brand .brand-mark { filter: drop-shadow(0 0 7px #38bdf877); }
+.brand-name { background: linear-gradient(90deg, #7dd3fc, #38bdf8 60%, #a5f3fc); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: 0.01em; }
+.brand-sub { color: var(--text-dim); font-weight: 400; font-size: 0.8rem; }
 
 #level-pill {
   background: #0b1220;
@@ -69,9 +70,20 @@ body {
   gap: 8px;
 }
 #level-pill .lvl-stars { color: var(--warning); letter-spacing: 1px; font-size: 0.75rem; }
+/* A chip of the level's own sky, so each level has a colour of its own */
+.pill-dot {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  background: var(--pill-sky, linear-gradient(135deg, #38bdf8, #0ea5e9));
+  box-shadow: 0 0 0 2px #ffffff22, 0 0 10px var(--pill-glow, #38bdf855);
+}
 
 .meters { display: flex; gap: 14px; align-items: center; margin-left: auto; }
-.meter { min-width: 158px; }
+.meter { min-width: 178px; display: flex; align-items: center; gap: 9px; }
+.meter-body { flex: 1; min-width: 0; }
+.meter-ico { width: 22px; height: 22px; flex-shrink: 0; fill: none; stroke: var(--text-dim); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#meter-budget .meter-ico { stroke: #fbbf24; }
+#meter-stress .meter-ico { stroke: #fb923c; }
+.meter-sub { font-size: 0.6rem; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meter-label {
   font-size: 0.7rem;
   color: var(--text-dim);
@@ -150,6 +162,9 @@ body {
   white-space: nowrap;
   transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
+.btn .ico { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.btn .ico.ico-fill { fill: currentColor; stroke-width: 1.2; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn:hover:not(:disabled) { background: #29395a; border-color: #3b4d73; }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.35; cursor: default; }
@@ -175,33 +190,32 @@ body {
 .btn-danger { background: linear-gradient(180deg, #ef4444, #dc2626); color: #fff; border-color: #f87171; }
 .btn-danger:hover:not(:disabled) { background: linear-gradient(180deg, #f87171, #ef4444); }
 .btn-ghost { background: transparent; }
+/* The bridge is ready to test: the button breathes so the next step is obvious */
+@keyframes readyGlow { 0%, 100% { box-shadow: 0 0 0 0 #38bdf800; } 50% { box-shadow: 0 0 0 5px #38bdf844, 0 0 22px #38bdf888; } }
+.btn-primary.ready { animation: readyGlow 1.6s ease-in-out infinite; }
 
 /* Material buttons */
 .mat-btn {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 5px 12px 5px 28px;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px 6px 9px;
   position: relative;
   line-height: 1.25;
 }
-.mat-btn::before {
-  content: '';
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  box-shadow: 0 0 8px currentColor;
+.mat-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+/* Each material's swatch is a thumbnail of how it is drawn on the bridge */
+.swatch {
+  width: 28px; height: 11px; border-radius: 3px; flex-shrink: 0; position: relative; overflow: hidden;
+  border: 1px solid #0009; box-shadow: inset 0 1px 0 #ffffff40, 0 0 8px var(--sw-glow, transparent);
 }
+.mat-road .swatch  { background: linear-gradient(#6b7487, #454d5e); --sw-glow: #94a3b855; }
+.mat-road .swatch::after { content: ''; position: absolute; left: 3px; right: 3px; top: 4px; height: 2px; background: repeating-linear-gradient(90deg, #facc15 0 4px, transparent 4px 7px); }
+.mat-wood .swatch  { background: repeating-linear-gradient(90deg, #00000026 0 1px, transparent 1px 6px), linear-gradient(#e08a1e, #9a4a0c); --sw-glow: #d9770655; }
+.mat-steel .swatch { background: radial-gradient(circle, #0b3b5c 1.2px, transparent 1.6px) 5px 50% / 9px 100% repeat-x, linear-gradient(#8bdcff, #2f9bd6 55%, #1e6fa5); --sw-glow: #38bdf855; }
+.mat-cable .swatch { background: repeating-linear-gradient(115deg, #d8a8ff 0 3px, #8b2fd6 3px 6px); --sw-glow: #a855f755; }
 .mat-btn small { font-size: 0.65rem; color: var(--text-dim); font-weight: 500; }
 .mat-btn.active small { color: #bfdbfe; }
-.mat-road::before  { background: var(--road);  color: var(--road); }
-.mat-wood::before  { background: var(--wood);  color: var(--wood); }
-.mat-steel::before { background: var(--steel); color: var(--steel); }
-.mat-cable::before { background: var(--cable); color: var(--cable); }
 
 @keyframes nudge {
   0%,100% { transform: translateX(0); }
@@ -282,6 +296,8 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   transition: all 0.2s ease;
 }
 .obj-item.done .tick { background: var(--success); border-color: var(--success); color: #052e16; }
+@keyframes tickPop { 0% { transform: scale(0.4); box-shadow: 0 0 0 0 #22c55eaa; } 55% { transform: scale(1.35); } 100% { transform: scale(1); box-shadow: 0 0 0 7px #22c55e00; } }
+.obj-item.just-done .tick { animation: tickPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1); }
 .obj-item.done { color: #cbd5e1; }
 .obj-item.warn .tick { border-color: var(--warning); color: var(--warning); background: #f59e0b22; }
 .obj-item.warn { color: #fcd34d; }
@@ -294,7 +310,7 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   left: 14px;
   padding: 10px 13px;
   pointer-events: none;
-  width: 210px;
+  width: 214px;
 }
 .legend-ramp {
   height: 9px;
@@ -310,8 +326,7 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   color: var(--text-dim);
   margin-bottom: 8px;
 }
-.legend-item { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: var(--text-muted); }
-.legend-swatch { width: 18px; height: 5px; border-radius: 3px; flex-shrink: 0; }
+.legend-note { font-size: 0.64rem; color: var(--text-dim); line-height: 1.4; }
 
 /* Live analysis */
 #hud-analysis {
@@ -331,6 +346,18 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   gap: 8px;
 }
 .an-row b { color: var(--text); font-variant-numeric: tabular-nums; }
+/* Deck sag gauge: green at rest, through amber, to red at the limit where the slab cracks */
+.sag-gauge {
+  position: relative; height: 9px; border-radius: 999px; margin: 3px 0 2px;
+  background: linear-gradient(90deg, #22c55e 0%, #84cc16 35%, #f59e0b 65%, #ef4444 100%);
+  box-shadow: inset 0 0 0 1px #0b122055;
+}
+.sag-fill { position: absolute; right: 0; top: 0; bottom: 0; width: 100%; border-radius: 0 999px 999px 0; background: #0b1220d9; transition: width 0.12s linear; }
+.sag-mark {
+  position: absolute; top: -3px; width: 3px; height: 15px; border-radius: 2px; left: 0;
+  background: #fff; box-shadow: 0 0 6px #fff; transition: left 0.12s linear;
+}
+.sag-scale { display: flex; justify-content: space-between; font-size: 0.62rem; color: var(--text-dim); margin-bottom: 4px; }
 .an-bar-track {
   height: 5px;
   background: #0b1220;
@@ -658,6 +685,18 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
 }
 .star-tally b { color: var(--warning); font-size: 0.95rem; letter-spacing: 0; }
 
+/* Level artwork: each level's world as a little picture */
+.level-art { display: block; width: 100%; height: 100%; }
+.brief-art {
+  position: relative; height: 112px; margin: 2px 0 14px; border-radius: 11px; overflow: hidden;
+  border: 1px solid var(--panel-border); box-shadow: 0 8px 22px #00000066, inset 0 0 0 1px #ffffff10;
+}
+.brief-art-tag {
+  position: absolute; left: 10px; bottom: 8px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #fff; background: #0b1220a8; backdrop-filter: blur(4px); padding: 3px 9px; border-radius: 999px;
+}
+.lc-thumb { position: relative; width: 78px; height: 46px; flex-shrink: 0; border-radius: 8px; overflow: hidden; border: 1px solid #ffffff1f; box-shadow: 0 2px 8px #0006; }
+.lc-thumb .lc-num { position: absolute; left: 4px; top: 4px; width: 18px; height: 18px; font-size: 0.68rem; border-radius: 6px; background: #0b1220cc; }
 /* Level select cards */
 .level-list { display: flex; flex-direction: column; gap: 8px; }
 .level-card {
@@ -736,7 +775,7 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
    Test button is always on screen on a typical laptop, rather than hidden behind a scroll. */
 @media (max-width: 1500px) {
   .mat-btn small { display: none; }
-  .mat-btn { flex-direction: row; align-items: center; padding: 7px 10px 7px 26px; }
+  .mat-btn { flex-direction: row; align-items: center; padding: 6px 10px 6px 8px; }
   .tool-cluster .btn:not(.mat-btn) kbd { display: none; }
 }
 @media (max-width: 1360px) {
@@ -760,15 +799,14 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   #toolbar .tool-cluster > .btn { flex: 1 1 0; justify-content: center; padding-left: 6px; padding-right: 6px; min-width: 0; }
   #toolbar .divider { flex-basis: 100%; height: 0; margin: 0; width: auto; }
   #btn-test, #btn-edit { flex-grow: 2.4 !important; position: static; }
-  .mat-btn { padding-left: 22px !important; }
 }
 @media (max-width: 700px) {
   .btn .lbl { display: none; }
   #level-pill { display: none; }
-  .brand span { display: none; }
+  .brand-sub { display: none; }
   .mat-btn small { display: none; }
   .btn kbd { display: none; }
-  .mat-btn { flex-direction: row; padding: 7px 10px 7px 26px; }
+  .mat-btn { flex-direction: row; padding: 6px 10px 6px 8px; }
   #btn-test .btn-long, #btn-edit .btn-long { display: none; }
   #hud-analysis { width: 178px; font-size: 0.7rem; }
   #hud-objectives { width: 168px; }
@@ -781,7 +819,7 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   .btn { padding-left: 8px; padding-right: 8px; }
   .btn .lbl, .btn kbd { display: none; }
   .mat-btn small { display: none; }
-  .mat-btn { padding: 6px 8px 6px 22px; flex-direction: row; }
+  .mat-btn { padding: 6px 8px 6px 7px; flex-direction: row; }
   #btn-test .btn-long, #btn-edit .btn-long { display: none; }
   .divider { margin: 0 2px; }
 }

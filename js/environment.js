@@ -4,7 +4,8 @@
  * life each level has (see THEMES in config.js). Adds its methods to TrussCraftApp (see app.js).
  *
  * Everything here is deterministic in time and position, so nothing shimmers or pops between
- * frames, and none of it touches the simulation.
+ * frames, and none of it touches the simulation. It runs on `envTime`, which stands still when the
+ * system asks for reduced motion, so the world holds still instead of drifting.
  */
 Object.assign(TrussCraftApp.prototype, {
   /** The current level's palette (the blueprint theme if a level has none). */
@@ -31,7 +32,7 @@ Object.assign(TrussCraftApp.prototype, {
       for (let i = 0; i < n; i++) {
         const sxp = hash1(i * 1.7) * w;
         const syp = hash1(i * 4.3) * h * 0.46;
-        const tw = 0.35 + 0.35 * Math.sin(this.time * 1.6 + i);
+        const tw = 0.35 + 0.35 * Math.sin(this.envTime * 1.6 + i);
         ctx.globalAlpha = tw * (1 - syp / (h * 0.55)) * 0.8 * Math.min(1, th.stars * 1.6);
         const s = hash1(i * 9.1) > 0.85 ? 1.9 : 1.2;
         ctx.fillRect(sxp, syp, s, s);
@@ -53,7 +54,7 @@ Object.assign(TrussCraftApp.prototype, {
 
       ctx.save();
       ctx.translate(sx, sy);
-      ctx.rotate(this.time * 0.02);
+      ctx.rotate(this.envTime * 0.02);
       ctx.fillStyle = `rgba(${th.sun.glow}, 0.032)`;
       for (let i = 0; i < 14; i++) {
         ctx.rotate(Math.PI / 7);
@@ -100,7 +101,7 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.save();
     for (let i = 0; i < this.clouds.length; i++) {
       const c = this.clouds[i];
-      c.x += c.speed * this.frameDt;
+      c.x += this.reduceMotion ? 0 : c.speed * this.frameDt;
       if (this.sx(c.x) > w + 260) c.x = this.toWorld(-260, 0).x;
       const yf = (c.y - 0.4) / 3.2;                       // 0..1: kept in screen space so clouds stay in view
       const px = this.sx(c.x), py = h * (0.05 + yf * 0.3);
@@ -175,7 +176,7 @@ Object.assign(TrussCraftApp.prototype, {
       for (let k = 0; k < 3; k++) ctx.fillRect(x - 11 * sc + k * 8 * sc, y - bh * 0.35, 4 * sc, 4 * sc);
       // smoke plume
       for (let k = 0; k < 6; k++) {
-        const age = (this.time * 0.12 + k / 6 + i * 0.17) % 1;
+        const age = (this.envTime * 0.12 + k / 6 + i * 0.17) % 1;
         ctx.fillStyle = `rgba(80, 58, 92, ${0.32 * (1 - age)})`;
         ctx.beginPath();
         ctx.arc(x + age * 34 * sc + Math.sin(age * 5 + i) * 4, y - bh - age * 70 * sc, (5 + age * 16) * sc, 0, Math.PI * 2);
@@ -237,7 +238,7 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.fillStyle = mist;
     ctx.beginPath();
     for (let x = 0; x <= this.viewW; x += 10) {
-      const y = mistY - 108 + Math.sin(x * 0.012 + this.time * 0.35) * 10 + Math.sin(x * 0.031 - this.time * 0.2) * 5;
+      const y = mistY - 108 + Math.sin(x * 0.012 + this.envTime * 0.35) * 10 + Math.sin(x * 0.031 - this.envTime * 0.2) * 5;
       x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.lineTo(this.viewW, mistY + 6);
@@ -284,7 +285,7 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.save();
     ctx.beginPath(); ctx.rect(0, surfaceY, w, h - surfaceY); ctx.clip();
     for (let i = 0; i < 7; i++) {
-      const x = hash1(i * 6.1) * w + Math.sin(this.time * 0.25 + i) * 14;
+      const x = hash1(i * 6.1) * w + Math.sin(this.envTime * 0.25 + i) * 14;
       const g2 = ctx.createLinearGradient(0, surfaceY, 0, h);
       g2.addColorStop(0, 'rgba(255,255,255,0.11)');
       g2.addColorStop(1, 'rgba(255,255,255,0)');
@@ -305,8 +306,8 @@ Object.assign(TrussCraftApp.prototype, {
       ctx.moveTo(0, surfaceY + layer * 3);
       for (let x = 0; x <= w; x += 6) {
         const y = surfaceY + layer * 3.2 +
-                  Math.sin((x / wavelength) + this.time * speed) * amp +
-                  Math.sin((x / (wavelength * 0.42)) - this.time * speed * 1.4) * amp * 0.4;
+                  Math.sin((x / wavelength) + this.envTime * speed) * amp +
+                  Math.sin((x / (wavelength * 0.42)) - this.envTime * speed * 1.4) * amp * 0.4;
         ctx.lineTo(x, y);
       }
       ctx.strokeStyle = layer === 0 ? th.water.line : th.water.glint.replace(/[\d.]+\)$/, `${0.2 - layer * 0.06})`);
@@ -318,15 +319,15 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     for (const bx of [t.leftBank, t.rightBank]) {
       for (let i = 0; i < 9; i++) {
-        const fx = this.sx(bx) + (hash1(i * 4.1 + bx) - 0.5) * 36 + Math.sin(this.time * 1.4 + i) * 3;
-        const fy = surfaceY + Math.sin(this.time * 1.8 + i * 1.7) * 1.5;
-        ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.time * 2 + i);
+        const fx = this.sx(bx) + (hash1(i * 4.1 + bx) - 0.5) * 36 + Math.sin(this.envTime * 1.4 + i) * 3;
+        const fy = surfaceY + Math.sin(this.envTime * 1.8 + i * 1.7) * 1.5;
+        ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.envTime * 2 + i);
         ctx.beginPath(); ctx.ellipse(fx, fy, 5 + hash1(i * 2.2) * 6, 2, 0, 0, Math.PI * 2); ctx.fill();
       }
     }
     if (th.rough) {
       for (let i = 0; i < 14; i++) {
-        const fx = ((hash1(i * 5.3) * w + this.time * 24 * (0.6 + hash1(i))) % (w + 60)) - 30;
+        const fx = ((hash1(i * 5.3) * w + this.envTime * 24 * (0.6 + hash1(i))) % (w + 60)) - 30;
         ctx.globalAlpha = 0.5;
         ctx.beginPath(); ctx.ellipse(fx, surfaceY + 1, 9, 2.4, 0, 0, Math.PI * 2); ctx.fill();
       }
@@ -339,7 +340,7 @@ Object.assign(TrussCraftApp.prototype, {
       const gx = hash1(i * 2.3) * w;
       const gy = surfaceY + 8 + hash1(i * 5.1) * (h - surfaceY) * 0.55;
       const len = 8 + hash1(i * 3.7) * 26;
-      const a = 0.5 + 0.5 * Math.sin(this.time * 1.5 + i * 2.1);
+      const a = 0.5 + 0.5 * Math.sin(this.envTime * 1.5 + i * 2.1);
       ctx.globalAlpha = a * 0.34 * (1 - (gy - surfaceY) / Math.max(1, h - surfaceY));
       ctx.fillRect(gx, gy, len, 1.5);
     }
@@ -466,7 +467,7 @@ Object.assign(TrussCraftApp.prototype, {
       for (let i = 0; i < 44; i++) {
         const gx = capX0 + hash1(i * 3.9 + (side === 'left' ? 0 : 61)) * capW;
         const gh = (3 + hash1(i * 6.1) * 5) * Math.max(0.8, sc);
-        const sway = Math.sin(this.time * 1.1 + i) * 1.2;
+        const sway = Math.sin(this.envTime * 1.1 + i) * 1.2;
         ctx.moveTo(gx, capY - capH);
         ctx.lineTo(gx + sway, capY - capH - gh);
       }
@@ -491,7 +492,7 @@ Object.assign(TrussCraftApp.prototype, {
       const x = inner + dir * dist;
       if (x < 6 || x > this.viewW - 6) continue;
       const k = hash1(i * 9.3 + seed * 17);
-      const sway = Math.sin(this.time * 0.9 + i * 1.7 + seed) * 1.4 * sc;
+      const sway = Math.sin(this.envTime * 0.9 + i * 1.7 + seed) * 1.4 * sc;
 
       switch (th.props) {
         case 'pines': {
@@ -542,7 +543,7 @@ Object.assign(TrussCraftApp.prototype, {
           ctx.fillStyle = 'rgba(255,196,120,0.85)';
           for (let wnd = 0; wnd < 4; wnd++) ctx.fillRect(x - bw / 2 + 6 * sc + wnd * 10 * sc, groundPx - bh * 0.7, 5 * sc, 5 * sc);
           for (let p = 0; p < 5; p++) {
-            const age = (this.time * 0.18 + p / 5 + i * 0.3) % 1;
+            const age = (this.envTime * 0.18 + p / 5 + i * 0.3) % 1;
             ctx.fillStyle = `rgba(70,52,84,${0.5 * (1 - age)})`;
             ctx.beginPath();
             ctx.arc(x + bw * 0.22 + 3 * sc + age * 26 * sc, groundPx - bh - 30 * sc - age * 56 * sc, (4 + age * 12) * sc, 0, Math.PI * 2);
@@ -631,8 +632,8 @@ Object.assign(TrussCraftApp.prototype, {
     const waterPx = this.sy(t.waterY);
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     for (let i = 0; i < 8; i++) {
-      const fx = cx + (hash1(i * 3.7) - 0.5) * halfBot * 2.4 + Math.sin(this.time * 1.5 + i) * 3;
-      ctx.globalAlpha = 0.3 + 0.25 * Math.sin(this.time * 2 + i);
+      const fx = cx + (hash1(i * 3.7) - 0.5) * halfBot * 2.4 + Math.sin(this.envTime * 1.5 + i) * 3;
+      ctx.globalAlpha = 0.3 + 0.25 * Math.sin(this.envTime * 2 + i);
       ctx.beginPath(); ctx.ellipse(fx, waterPx, 6 + hash1(i) * 6, 2, 0, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
@@ -672,7 +673,7 @@ Object.assign(TrussCraftApp.prototype, {
       ctx.stroke();
 
       // A warning lamp on top
-      const blink = 0.5 + 0.5 * Math.sin(this.time * 3 + a.x);
+      const blink = 0.5 + 0.5 * Math.sin(this.envTime * 3 + a.x);
       ctx.fillStyle = `rgba(255, 90, 80, ${0.35 + 0.65 * blink})`;
       ctx.beginPath(); ctx.arc(cx, top - 7 * sc, 2.6 * sc, 0, Math.PI * 2); ctx.fill();
     }
@@ -708,9 +709,9 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.lineCap = 'round';
     for (let i = 0; i < 5; i++) {
       const speed = 16 + hash1(i * 3.3) * 10;
-      const x = ((this.time * speed + i * 260) % (w + 240)) - 120;
-      const y = h * (0.16 + 0.12 * hash1(i * 7.1)) + Math.sin(this.time * 0.7 + i * 2) * 8 + (i % 2) * 24;
-      const flap = Math.sin(this.time * 7 + i * 2.3) * 4.5 * sc;
+      const x = ((this.envTime * speed + i * 260) % (w + 240)) - 120;
+      const y = h * (0.16 + 0.12 * hash1(i * 7.1)) + Math.sin(this.envTime * 0.7 + i * 2) * 8 + (i % 2) * 24;
+      const flap = Math.sin(this.envTime * 7 + i * 2.3) * 4.5 * sc;
       ctx.beginPath();
       ctx.moveTo(x - 8 * sc, y - flap);
       ctx.quadraticCurveTo(x - 3 * sc, y + 1 * sc, x, y);
@@ -725,8 +726,8 @@ Object.assign(TrussCraftApp.prototype, {
     const w = this.viewW, h = this.viewH;
     const sc = Math.max(0.7, this.PPM / 45);
     for (let i = 0; i < 2; i++) {
-      const x = ((this.time * (7 + i * 3) + i * 520) % (w + 520)) - 260;
-      const y = h * (0.1 + i * 0.1) + Math.sin(this.time * 0.3 + i) * 5;
+      const x = ((this.envTime * (7 + i * 3) + i * 520) % (w + 520)) - 260;
+      const y = h * (0.1 + i * 0.1) + Math.sin(this.envTime * 0.3 + i) * 5;
       const s = sc * (1 - i * 0.28);
       ctx.save();
       ctx.translate(x, y);
@@ -750,7 +751,7 @@ Object.assign(TrussCraftApp.prototype, {
       ctx.fillStyle = 'rgba(255,230,160,0.9)';
       for (let k = 0; k < 4; k++) ctx.fillRect(-11 * s + k * 6.5 * s, 18 * s, 3.5 * s, 3 * s);
       ctx.strokeStyle = 'rgba(60,50,40,0.8)'; ctx.lineWidth = 2 * s;
-      const a = this.time * 14 + i;
+      const a = this.envTime * 14 + i;
       ctx.beginPath(); ctx.moveTo(-58 * s, Math.sin(a) * 9 * s); ctx.lineTo(-58 * s, -Math.sin(a) * 9 * s); ctx.stroke();
       ctx.restore();
     }
@@ -763,9 +764,9 @@ Object.assign(TrussCraftApp.prototype, {
     for (let i = 0; i < 16; i++) {
       const left = i % 2 === 0;
       const x = (left ? this.sx(t.leftBank) - 30 - hash1(i * 4.1) * 220 : this.sx(t.rightBank) + 30 + hash1(i * 4.1) * 220)
-              + Math.sin(this.time * 0.6 + i * 3) * 18;
-      const y = base - 12 - hash1(i * 6.7) * 60 + Math.sin(this.time * 0.9 + i * 2) * 10;
-      const glow = Math.max(0, Math.sin(this.time * 1.7 + i * 5));
+              + Math.sin(this.envTime * 0.6 + i * 3) * 18;
+      const y = base - 12 - hash1(i * 6.7) * 60 + Math.sin(this.envTime * 0.9 + i * 2) * 10;
+      const glow = Math.max(0, Math.sin(this.envTime * 1.7 + i * 5));
       if (x < 0 || x > this.viewW) continue;
       const g = ctx.createRadialGradient(x, y, 0, x, y, 12);
       g.addColorStop(0, `rgba(255, 244, 150, ${0.85 * glow})`);
@@ -784,14 +785,14 @@ Object.assign(TrussCraftApp.prototype, {
     const top = this.sy(t.groundY), water = this.sy(t.waterY);
     for (let i = 0; i < 4; i++) {
       const period = 3.6 + i * 0.9;
-      const phase = ((this.time + i * 1.7) % period) / period;
+      const phase = ((this.envTime + i * 1.7) % period) / period;
       const fall = phase * (water - top) * 1.1;
       if (phase > 0.9) continue;
       const g = fall * fall / (water - top);                       // accelerates
       const x = faceX + 4 * sc + hash1(i * 7.7) * 10 * sc + Math.sin(phase * 8 + i) * 2;
       const y = top + 6 * sc + Math.min(g, water - top - 4);
       ctx.fillStyle = '#5b3a2c';
-      ctx.save(); ctx.translate(x, y); ctx.rotate(this.time * 5 + i);
+      ctx.save(); ctx.translate(x, y); ctx.rotate(this.envTime * 5 + i);
       ctx.fillRect(-2.6 * sc, -2 * sc, 5.2 * sc, 4 * sc);
       ctx.restore();
       // a puff where it broke away
@@ -808,7 +809,7 @@ Object.assign(TrussCraftApp.prototype, {
     const y = this.sy(t.groundY + (t.waterY - t.groundY) * 0.45);
     ctx.save();
     for (let i = 0; i < 3; i++) {
-      const x = ((this.time * (5 + i * 2) + i * 400) % (this.viewW + 500)) - 250;
+      const x = ((this.envTime * (5 + i * 2) + i * 400) % (this.viewW + 500)) - 250;
       const g = ctx.createRadialGradient(x, y + i * 26, 0, x, y + i * 26, 190);
       g.addColorStop(0, `rgba(${th.mist.rgb}, ${th.mist.a * 0.8})`);
       g.addColorStop(1, `rgba(${th.mist.rgb}, 0)`);
@@ -828,8 +829,8 @@ Object.assign(TrussCraftApp.prototype, {
     const n = Math.min(170, Math.round(w / 7));
     for (let i = 0; i < n; i++) {
       const speed = (520 + hash1(i * 2.9) * 260) * calm;
-      const x = ((hash1(i * 3.1) * (w + 200) - this.time * 90 * calm) % (w + 200) + w + 200) % (w + 200) - 100;
-      const y = (hash1(i * 7.7) * h + this.time * speed) % h;
+      const x = ((hash1(i * 3.1) * (w + 200) - this.envTime * 90 * calm) % (w + 200) + w + 200) % (w + 200) - 100;
+      const y = (hash1(i * 7.7) * h + this.envTime * speed) % h;
       const len = 9 + hash1(i * 5.3) * 10;
       ctx.moveTo(x, y); ctx.lineTo(x - len * 0.18, y + len);
     }
@@ -842,7 +843,7 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.lineWidth = 1;
     for (let i = 0; i < 18; i++) {
       const x = hash1(i * 4.7) * w;
-      const k = ((this.time * 1.6 + hash1(i * 9.1) * 3) % 1);
+      const k = ((this.envTime * 1.6 + hash1(i * 9.1) * 3) % 1);
       ctx.globalAlpha = 1 - k;
       ctx.beginPath(); ctx.ellipse(x, surfaceY + 3 + hash1(i * 2.1) * 14, 2 + k * 7, 1 + k * 2, 0, 0, Math.PI * 2); ctx.stroke();
     }
@@ -852,8 +853,8 @@ Object.assign(TrussCraftApp.prototype, {
   /** Rare and gentle: one bolt every few seconds, never a strobe, and none at all if motion is reduced. */
   drawLightning(ctx) {
     const period = 11;
-    const idx = Math.floor(this.time / period);
-    const ph = this.time - idx * period;
+    const idx = Math.floor(this.envTime / period);
+    const ph = this.envTime - idx * period;
     if (ph > 0.9) return;
     if (this.lastStrike !== idx && ph < 0.3) {
       this.lastStrike = idx;
@@ -883,8 +884,8 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.save();
     ctx.fillStyle = 'rgba(255, 224, 180, 0.35)';
     for (let i = 0; i < 38; i++) {
-      const x = ((hash1(i * 3.3) * w + this.time * (14 + hash1(i * 6.1) * 22)) % (w + 40)) - 20;
-      const y = hash1(i * 8.9) * h * 0.85 + Math.sin(this.time * 0.8 + i) * 6;
+      const x = ((hash1(i * 3.3) * w + this.envTime * (14 + hash1(i * 6.1) * 22)) % (w + 40)) - 20;
+      const y = hash1(i * 8.9) * h * 0.85 + Math.sin(this.envTime * 0.8 + i) * 6;
       ctx.beginPath(); ctx.arc(x, y, 0.9 + hash1(i * 2.3) * 1.4, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();

@@ -54,6 +54,7 @@ class TrussCraftApp {
 
     // Presentation state
     this.time = 0;
+    this.envTime = 0;
     this.frameDt = 0;
     // Shake, camera punch and flashes are the effects that bother people with vestibular
     // sensitivity or photosensitivity, so they honour the system's reduce-motion setting.
@@ -185,6 +186,12 @@ class TrussCraftApp {
 
   updateLevelPill() {
     const stars = this.starsFor(this.level.id);
+    const th = this.level.theme;
+    const pill = document.getElementById('level-pill');
+    if (th) {
+      pill.style.setProperty('--pill-sky', `linear-gradient(135deg, ${th.sky[0]}, ${th.sky[2]} 60%, ${th.sky[3]})`);
+      pill.style.setProperty('--pill-glow', th.sky[2] + '88');
+    }
     document.getElementById('ui-level').innerText = this.level.title;
     document.getElementById('ui-level-stars').innerText = '★'.repeat(stars) + '☆'.repeat(3 - stars);
   }
@@ -302,6 +309,8 @@ class TrussCraftApp {
     this.members = [];
     this.vehicle = null;
     this.resetPresentation();
+    this.prevDone = {};
+    this.pendingModal = null;
     this.maxStressObserved = 0;
     this.firstFailure = null;
     this.brokenCount = 0;
@@ -544,6 +553,10 @@ class TrussCraftApp {
     const reference = (isUnlimited(this.level) && this.level.par) ? this.level.par : budget;
     const pct = reference >= UNLIMITED_BUDGET ? Math.min(100, cost / 6000 * 100) : (cost / reference) * 100;
 
+    const of = document.getElementById('ui-budget-of');
+    if (of) of.textContent = isUnlimited(this.level)
+      ? (this.level.par ? `par $${this.level.par.toLocaleString()} for the third star` : 'no budget limit')
+      : `of $${budget.toLocaleString()} budget`;
     const el = document.getElementById('ui-budget');
     el.innerText = '$' + cost.toLocaleString();
     el.style.color = cost > reference ? 'var(--danger)' : 'var(--text)';
@@ -648,28 +661,33 @@ class TrussCraftApp {
 
     const items = [
       {
+        key: 'started',
         state: a.memberCount > 0 ? 'done' : '',
         text: a.memberCount > 0 ? `Structure started — ${a.memberCount} members` : 'Drag on the grid to place your first member'
       },
       {
+        key: 'span',
         state: a.deckSpans ? 'done' : (a.coveredPct > 0 ? 'warn' : ''),
         text: a.deckSpans
           ? 'Roadway spans the full gap'
           : `Roadway spans the gap <b>(${Math.round(a.coveredPct * 100)}%)</b>`
       },
       {
+        key: 'anchor',
         state: a.floating === 0 ? (a.memberCount > 0 ? 'done' : '') : 'bad',
         text: a.floating === 0
           ? 'Everything is tied to an anchor'
           : `${a.floating} joint${a.floating > 1 ? 's are' : ' is'} floating free of any anchor`
       },
       {
+        key: 'brace',
         state: a.bracingCount > 0 ? 'done' : (a.memberCount > 0 ? 'bad' : ''),
         text: a.bracingCount > 0
           ? `Bracing added — ${a.bracingCount} member${a.bracingCount > 1 ? 's' : ''}`
           : 'Brace it with a <b>second material</b> — Wood <kbd>2</kbd>, Steel <kbd>3</kbd> or Cable <kbd>4</kbd>'
       },
       {
+        key: 'triangulated',
         state: a.unbraced === 0 ? (a.deckSpans && a.bracingCount > 0 ? 'done' : '') : 'warn',
         text: a.unbraced === 0
           ? 'Every deck joint is triangulated'
@@ -679,6 +697,7 @@ class TrussCraftApp {
 
     if (a.dangling > 0) {
       items.push({
+        key: 'loose',
         state: 'warn',
         text: `${a.dangling} loose end${a.dangling > 1 ? 's' : ''} <b>!</b> — connected at one end only, so ${a.dangling > 1 ? 'they carry' : 'it carries'} nothing`
       });
@@ -686,6 +705,7 @@ class TrussCraftApp {
 
     if (!budgetUnlimited) {
       items.push({
+        key: 'budget',
         state: a.overBudget ? 'bad' : (a.memberCount > 0 ? 'done' : ''),
         text: a.overBudget
           ? `Over budget by <b>$${(a.cost - this.level.budget).toLocaleString()}</b>`
@@ -694,6 +714,7 @@ class TrussCraftApp {
     } else if (this.level.par) {
       const overPar = a.cost > this.level.par;
       items.push({
+        key: 'budget',
         state: overPar ? 'warn' : (a.memberCount > 0 ? 'done' : ''),
         text: overPar
           ? `Over par by <b>$${(a.cost - this.level.par).toLocaleString()}</b> — still buildable, but no third star`
@@ -701,8 +722,18 @@ class TrussCraftApp {
       });
     }
 
+    // A line that has only just been ticked gets a little pop
+    const wasDone = this.prevDone || {};
+    const nowDone = {};
+    for (const i of items) { nowDone[i.key] = i.state === 'done'; i.fresh = nowDone[i.key] && wasDone[i.key] === false; }
+    this.prevDone = nowDone;
+
+    // Everything the test needs is in place: make the Test button breathe
+    const ready = this.mode === 'build' && a.memberCount > 0 && a.deckSpans && a.floating === 0 && a.bracingCount > 0;
+    document.getElementById('btn-test').classList.toggle('ready', ready);
+
     const html = items.map(i =>
-      `<div class="obj-item ${i.state}"><div class="tick">${i.state === 'bad' ? '!' : i.state === 'warn' ? '·' : '✓'}</div><div>${i.text}</div></div>`
+      `<div class="obj-item ${i.state}${i.fresh ? ' just-done' : ''}"><div class="tick">${i.state === 'bad' ? '!' : i.state === 'warn' ? '·' : '✓'}</div><div>${i.text}</div></div>`
     ).join('');
 
     const done = items.filter(i => i.state === 'done').length;
@@ -819,6 +850,7 @@ class TrussCraftApp {
     this.drawFailureMarker(ctx);
     this.drawMovePreview(ctx);
     this.drawVehicle(ctx);
+    this.drawLoadArrows(ctx);
     this.drawParticles(ctx);
     this.drawShockwaves(ctx);
     this.drawAmbientFront(ctx);
@@ -832,6 +864,7 @@ class TrussCraftApp {
     this.lastTime = timestamp;
     this.time += dt;
     this.frameDt = dt;
+    this.envTime = this.reduceMotion ? 0 : this.time;     // the scenery's clock: still, if motion is reduced
 
     // Presentation decay
     this.shake *= Math.pow(0.0016, dt);
@@ -851,6 +884,11 @@ class TrussCraftApp {
 
     this.stepPhysics(dt);
     this.updateParticles(dt);
+    if (this.pendingModal && this.time >= this.pendingModalAt) {
+      const spec = this.pendingModal;
+      this.pendingModal = null;
+      if (this.mode === 'test') this.showModal(spec);      // not if the student already went back to editing
+    }
 
     // Exhaust trail
     const v = this.vehicle;

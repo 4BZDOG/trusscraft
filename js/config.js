@@ -306,6 +306,8 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
 // ============================================================
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp  = (a, b, t) => a + (b - a) * t;
+/** Overshoots slightly then settles: used for things that pop into place. */
+const easeOutBack = (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2);
 
 /** Deterministic pseudo-random in [0,1) — keeps terrain from shimmering. */
 function hash1(n) {

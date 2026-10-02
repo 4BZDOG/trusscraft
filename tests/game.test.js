@@ -142,7 +142,7 @@ describe('explaining a failure', () => {
       const a = app.createNode(6, 6, false), b = app.createNode(8, 5.5, false), c = app.createNode(10, 6, false);
       [[L, a], [a, b], [b, c], [c, R]].forEach(([p, q]) => app.createMember(p, q, 'road'));
       app.startSimulation();
-      drive(25, 1 / 60, () => app.resultShown);
+      drive(25, 1 / 60, () => app.resultShown); drive(1.8);
       const body = document.getElementById('modal-body').textContent;
       app.render();                                  // the failure marker must draw without error
       return { failure: app.firstFailure && app.firstFailure.type, body, shown: app.resultShown };
@@ -158,7 +158,7 @@ describe('explaining a failure', () => {
       app.loadLevel(0); app.closeModal(); if (app.coach) app.endCoach();
       let prev = app.nodes.find((n) => n.fixed && n.x === 4);
       for (let x = 6; x <= 12; x += 2) { const n = app.findNearestNode(x, 7, 0.05) || app.createNode(x, 7, false); app.createMember(prev, n, 'road'); prev = n; }
-      app.startSimulation(); drive(25, 1 / 60, () => app.resultShown);
+      app.startSimulation(); drive(25, 1 / 60, () => app.resultShown); drive(1.8);
       return document.getElementById('modal-body').textContent;
     });
     assert.doesNotMatch(body, /rises and falls/);

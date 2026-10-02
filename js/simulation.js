@@ -54,7 +54,8 @@ Object.assign(TrussCraftApp.prototype, {
     this.deckCracked = false;
     this.resetPresentation();
     this.members.forEach(m => { m.peak = 0; m.broken = false; });
-    this.nodes.forEach(n => { n.restY = n.y; });
+    this.nodes.forEach(n => { n.restY = n.y; n.restX = n.x; });
+    this.worstSagNode = null;
 
     document.getElementById('btn-test').style.display = 'none';
     document.getElementById('btn-edit').style.display = 'flex';
@@ -73,6 +74,7 @@ Object.assign(TrussCraftApp.prototype, {
   stopSimulation() {
     audio.init();
     audio.stopEngine();
+    this.pendingModal = null;
     this.mode = 'build';
     document.getElementById('btn-test').style.display = 'flex';
     document.getElementById('btn-edit').style.display = 'none';
@@ -222,6 +224,7 @@ Object.assign(TrussCraftApp.prototype, {
       }
     }
     this.currentSag = sag;
+    this.worstSagNode = worst;
     if (sag > this.maxSag) this.maxSag = sag;
 
     const limit = this.sagLimit();
@@ -261,6 +264,7 @@ Object.assign(TrussCraftApp.prototype, {
       m.broken = true;
       this.brokenCount++;
       this.emitDebris(m, 1.6);
+      this.emitPieces(m);
     });
     audio.playGroan();
     audio.playSnap();
@@ -283,6 +287,7 @@ Object.assign(TrussCraftApp.prototype, {
     }
     audio.playSnap();
     this.emitDebris(m, 1);
+    this.emitPieces(m);
     this.impact((m.n1.x + m.n2.x) / 2, (m.n1.y + m.n2.y) / 2, 1);
   },
 
@@ -345,6 +350,10 @@ Object.assign(TrussCraftApp.prototype, {
     const limit = this.sagLimit();
     sagEl.innerText = sag.toFixed(2) + ' m';
     sagEl.style.color = sag >= limit ? 'var(--danger)' : sag >= limit * SAG_WARN_FRACTION ? 'var(--warning)' : 'var(--success)';
+    const sagFrac = clamp(sag / limit, 0, 1);
+    document.getElementById('an-sag-bar').style.width = ((1 - sagFrac) * 100) + '%';
+    document.getElementById('an-sag-mark').style.left = `calc(${sagFrac * 100}% - 1.5px)`;
+    document.getElementById('an-sag-limit').textContent = `cracks at ${limit.toFixed(2)} m`;
 
     const live = this.members.filter(m => !m.broken);
     const atRisk = live.filter(m => m.stress >= RISK_THRESHOLD);
@@ -403,6 +412,29 @@ Object.assign(TrussCraftApp.prototype, {
     if (this.time - (this.lastRumble || -1) > 0.12) {
       this.lastRumble = this.time;
       audio.playRumble(Math.min(1.2, stacked));
+    }
+  },
+
+  /**
+   * A broken member does not simply vanish: both halves tumble away with the speed their joints
+   * had, so a student sees what snapped and which way the load was pulling it.
+   */
+  emitPieces(m) {
+    const thick = { road: 0.26, steel: 0.18, wood: 0.15, cable: 0.07 }[m.mat] || 0.15;
+    const ang = Math.atan2(m.n2.y - m.n1.y, m.n2.x - m.n1.x);
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    const mx = (m.n1.x + m.n2.x) / 2, my = (m.n1.y + m.n2.y) / 2;
+    for (const side of [-1, 1]) {
+      const n = side < 0 ? m.n1 : m.n2;
+      const nvx = n.fixed ? 0 : (n.x - n.oldX) / PHYSICS_DT, nvy = n.fixed ? 0 : (n.y - n.oldY) / PHYSICS_DT;
+      this.addParticle({
+        kind: 'piece', mat: m.mat, color: MATERIALS[m.mat].color,
+        x: (mx + n.x) / 2, y: (my + n.y) / 2, rot: ang, vr: (Math.random() - 0.5) * 9,
+        len: Math.max(0.3, m.restLen / 2 * 0.94), thick,
+        vx: clamp(nvx * 0.5, -6, 6) + ux * side * (0.8 + Math.random() * 1.6),
+        vy: clamp(nvy * 0.5, -6, 6) + uy * side * (0.8 + Math.random() * 1.6) - 0.6 - Math.random() * 1.8,
+        life: 1, decay: 0.2 + Math.random() * 0.1
+      });
     }
   },
 
@@ -510,12 +542,13 @@ Object.assign(TrussCraftApp.prototype, {
       if (p.rot !== undefined) p.rot += p.vr * dt;
 
       if (p.kind === 'debris') { p.vy += 12 * dt; p.vx *= 0.99; }
+      else if (p.kind === 'piece') { p.vy += 11 * dt; p.vx *= 0.995; }
       else if (p.kind === 'dust') { p.vy -= 0.5 * dt; p.vx *= 0.96; p.size += 22 * dt; }
       else if (p.kind === 'spark') { p.vy += 6 * dt; p.vx *= 0.94; p.vy *= 0.94; }
       else if (p.kind === 'splash') { p.vy += 14 * dt; }
 
       // Debris hitting the water makes its own little splash
-      if (p.kind === 'debris' && p.y > waterY && !p.splashed) {
+      if ((p.kind === 'debris' || p.kind === 'piece') && p.y > waterY && !p.splashed) {
         p.splashed = true;
         this.addRipple(p.x, 0.3);
         p.life = Math.min(p.life, 0.25);

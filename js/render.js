@@ -113,7 +113,26 @@ Object.assign(TrussCraftApp.prototype, {
     return (mat === 'road' ? 5.0 : mat === 'steel' ? 3.6 : mat === 'wood' ? 3.0 : 1.5) * sc;
   },
 
+  /** A soft shadow under the whole structure lifts it off the scenery, whatever the palette. */
+  drawStructureShadow(ctx) {
+    const sc = this.PPM / 40;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.lineWidth = 7 * sc;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const m of this.members) {
+      if (m.broken) continue;
+      const a = this.toScreen(m.n1.x, m.n1.y), b = this.toScreen(m.n2.x, m.n2.y);
+      ctx.moveTo(a.x + 3 * sc, a.y + 5 * sc);
+      ctx.lineTo(b.x + 3 * sc, b.y + 5 * sc);
+    }
+    ctx.stroke();
+    ctx.restore();
+  },
+
   drawMembers(ctx, reflection = false) {
+    if (!reflection) this.drawStructureShadow(ctx);
     const dead = (this.mode === 'build' && !reflection && this.analysis)
       ? new Set(this.analysis.deadMembers) : null;
     for (const m of this.members) {
@@ -128,12 +147,60 @@ Object.assign(TrussCraftApp.prototype, {
       }
       this.drawMember(ctx, m, reflection);
     }
-    if (!reflection && this.mode === 'test') this.drawStressLabels(ctx);
+    if (!reflection && this.mode === 'test') {
+      this.drawDeckGauge(ctx);
+      this.drawStressLabels(ctx);
+    }
+  },
+
+  /**
+   * How far the deck has dropped, shown against how far it may. A faint dashed line marks where
+   * the roadway was built, and the Live Load Test card carries a gauge of the allowance used.
+   */
+  drawDeckGauge(ctx) {
+    const sc = this.PPM / 40;
+    ctx.save();
+    ctx.setLineDash([6 * sc, 5 * sc]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (const m of this.members) {
+      if (m.mat !== 'road' || m.n1.restY === undefined || m.n2.restY === undefined) continue;
+      const a = this.toScreen(m.n1.restX, m.n1.restY), b = this.toScreen(m.n2.restX, m.n2.restY);
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Once the deck is using up its allowance, say so at the joint that is dropping most
+    const node = this.worstSagNode;
+    const sag = this.currentSag || 0;
+    const limit = this.sagLimit();
+    const frac = sag / limit;
+    if (node && node.restY !== undefined && frac > 0.45 && !this.deckCracked) {
+      const x = this.sx(node.x), y = this.sy(node.y);
+      const col = frac > 0.8 ? '#fca5a5' : '#fcd34d';
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, 13 * sc + Math.sin(this.time * 8) * 1.5, 0, Math.PI * 2); ctx.stroke();
+      const label = `deck down ${(sag * 100).toFixed(0)} cm`;
+      ctx.font = `700 ${Math.max(9, 10 * sc)}px ui-monospace, Menlo, monospace`;
+      const tw = ctx.measureText(label).width + 12;
+      const ly = y + 24 * sc + 46 * sc;                   // below the load arrows
+      ctx.fillStyle = 'rgba(40, 14, 8, 0.9)';
+      ctx.beginPath(); ctx.roundRect(x - tw / 2, ly - 9, tw, 18, 5); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, x, ly + 0.5);
+    }
+    ctx.restore();
   },
 
   drawMember(ctx, m, reflection) {
+    // A new member grows out of the joint it was dragged from
+    const grow = (m.born === undefined || reflection) ? 1 : easeOutBack(clamp((this.time - m.born) / 0.2, 0, 1));
     const p1 = this.toScreen(m.n1.x, m.n1.y);
-    const p2 = this.toScreen(m.n2.x, m.n2.y);
+    const q2 = this.toScreen(m.n2.x, m.n2.y);
+    const p2 = grow >= 1 ? q2 : { x: lerp(p1.x, q2.x, grow), y: lerp(p1.y, q2.y, grow) };
     const mat = MATERIALS[m.mat];
     const sc = this.PPM / 40;
     const test = this.mode === 'test';
@@ -157,12 +224,26 @@ Object.assign(TrussCraftApp.prototype, {
     const dx = p2.x - p1.x, dy = p2.y - p1.y;
     const lenPx = Math.hypot(dx, dy);
     if (lenPx < 0.5) return;
-    const half = this.memberHalfHeight(m.mat);
+    let half = this.memberHalfHeight(m.mat);
     const base = test ? stressColor(m.force, s) : mat.color;
+
+    // Under tension a member thins as it nears its limit; under compression a slender one bows
+    // sideways before it buckles — the failure the handbook describes, made visible.
+    if (test && !reflection && m.force > 60 && s > 0.4) half *= 1 - 0.3 * (s - 0.4) / 0.6;
+    let bow = 0;
+    if (test && !reflection && m.force < -60 && s > 0.3 && !mat.isRoad) {
+      const slender = clamp(m.restLen / EULER_REF_LEN, 0.45, 1.8);
+      bow = Math.pow((s - 0.3) / 0.7, 1.5) * 0.22 * slender * this.PPM * Math.sign(Math.sin(m.warnPhase * 7) || 1);
+    }
 
     ctx.save();
     ctx.translate(p1.x, p1.y);
     ctx.rotate(Math.atan2(dy, dx));
+    // Close to failing, a member shudders
+    if (test && !reflection && s > 0.88) {
+      const k = this.time * 38 + m.warnPhase * 10;
+      ctx.translate(Math.sin(k) * 0.9 * sc, Math.cos(k * 1.3) * 0.9 * sc);
+    }
 
     // Glow as a member approaches its limit
     if (test && s > 0.5 && !reflection) {
@@ -185,6 +266,13 @@ Object.assign(TrussCraftApp.prototype, {
       ctx.moveTo(1, -half * 0.35); ctx.lineTo(lenPx - 1, -half * 0.35);
       ctx.stroke();
       ctx.restore();
+      return;
+    }
+
+    if (Math.abs(bow) > 0.8) {
+      this.drawBowedMember(ctx, m, lenPx, half, bow, base, hovered);
+      ctx.restore();
+      if (this.showVectors && test && Math.abs(m.force) > 80 && !reflection) this.drawVectorArrows(ctx, p1, p2, m.force);
       return;
     }
 
@@ -261,6 +349,28 @@ Object.assign(TrussCraftApp.prototype, {
     if (this.showVectors && test && Math.abs(m.force) > 80 && !reflection) {
       this.drawVectorArrows(ctx, p1, p2, m.force);
     }
+  },
+
+  /** A strut bent into an arc by compression. Drawn in the member's own frame (see drawMember). */
+  drawBowedMember(ctx, m, lenPx, half, bow, base, hovered) {
+    const path = () => {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(lenPx / 2, 2 * bow, lenPx, 0);
+    };
+    ctx.lineCap = 'butt';
+    ctx.shadowBlur = 0;
+    path(); ctx.strokeStyle = hovered ? '#ffffff' : 'rgba(0,0,0,0.5)'; ctx.lineWidth = half * 2 + 3; ctx.stroke();
+    path(); ctx.strokeStyle = base; ctx.lineWidth = half * 2; ctx.stroke();
+    ctx.save();
+    ctx.translate(0, -half * 0.35);
+    path(); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = Math.max(1, half * 0.5); ctx.stroke();
+    ctx.restore();
+    // the true material stripe, so a wooden strut still reads as wood
+    ctx.save();
+    ctx.translate(0, half * 0.8);
+    path(); ctx.strokeStyle = MATERIALS[m.mat].color; ctx.globalAlpha = 0.9; ctx.lineWidth = Math.max(1, half * 0.25); ctx.stroke();
+    ctx.restore();
   },
 
   /** Percentage chips on the members doing the most work. */
@@ -360,8 +470,15 @@ Object.assign(TrussCraftApp.prototype, {
         ctx.lineWidth = 2 * sc;
         ctx.stroke();
       } else {
-        // Free joint: bolted gusset plate
-        const r = 5 * sc;
+        // Free joint: bolted gusset plate. A new one pops and sends out a ring.
+        const age = n.born === undefined ? 99 : this.time - n.born;
+        const pop = age < 0.4 ? 1 + 0.9 * Math.pow(1 - age / 0.4, 2) : 1;
+        if (age < 0.5) {
+          ctx.strokeStyle = `rgba(125, 211, 252, ${0.8 * (1 - age / 0.5)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(p.x, p.y, (6 + age * 40) * sc, 0, Math.PI * 2); ctx.stroke();
+        }
+        const r = 5 * sc * pop;
         const g = ctx.createRadialGradient(p.x - r * 0.4, p.y - r * 0.4, r * 0.1, p.x, p.y, r);
         g.addColorStop(0, '#ffffff');
         g.addColorStop(0.6, '#cbd5e1');
@@ -616,156 +733,6 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.textAlign = 'left';
   },
 
-  drawVehicle(ctx) {
-    const v = this.vehicle;
-    if (!v) return;
-    const p = this.toScreen(v.x, v.y);
-    const w = v.width * this.PPM;
-    const r = v.wheelRadius * this.PPM;
-    const accent = v.crashed ? '#ef4444' : '#38bdf8';
-
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate(v.tilt + (v.crashed ? Math.sin(this.time * 3) * 0.25 : 0));
-
-    // Contact shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(0, r * 0.95, w * 0.46, r * 0.28, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    const bodyH = v.type === 'truck' ? r * 2.9 : r * 2.2;
-
-    if (v.type === 'truck') {
-      // Freight box
-      const boxW = w * 0.62;
-      const g = ctx.createLinearGradient(0, -bodyH, 0, 0);
-      g.addColorStop(0, '#e2e8f0');
-      g.addColorStop(1, '#94a3b8');
-      ctx.fillStyle = v.crashed ? '#ef4444' : g;
-      ctx.beginPath();
-      ctx.roundRect(-w * 0.5, -bodyH, boxW, bodyH, 2);
-      ctx.fill();
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // Corrugation
-      ctx.strokeStyle = 'rgba(71,85,105,0.5)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = -w * 0.5 + 5; x < -w * 0.5 + boxW - 3; x += 6) {
-        ctx.moveTo(x, -bodyH + 3); ctx.lineTo(x, -3);
-      }
-      ctx.stroke();
-
-      // Cab
-      const cabX = -w * 0.5 + boxW;
-      const cabH = bodyH * 0.72;
-      const cg = ctx.createLinearGradient(0, -cabH, 0, 0);
-      cg.addColorStop(0, '#7dd3fc');
-      cg.addColorStop(1, '#0369a1');
-      ctx.fillStyle = v.crashed ? '#b91c1c' : cg;
-      ctx.beginPath();
-      ctx.roundRect(cabX, -cabH, w * 0.5 - 1, cabH, [3, 5, 2, 2]);
-      ctx.fill();
-      ctx.strokeStyle = '#082f49';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // Windscreen
-      ctx.fillStyle = 'rgba(186, 230, 253, 0.85)';
-      ctx.beginPath();
-      ctx.roundRect(cabX + w * 0.16, -cabH + 3, w * 0.28, cabH * 0.45, 2);
-      ctx.fill();
-    } else {
-      // Car / van silhouette
-      const cg = ctx.createLinearGradient(0, -bodyH, 0, 0);
-      cg.addColorStop(0, v.type === 'van' ? '#a5b4fc' : '#7dd3fc');
-      cg.addColorStop(1, v.type === 'van' ? '#4338ca' : '#0369a1');
-      ctx.fillStyle = v.crashed ? '#ef4444' : cg;
-      ctx.beginPath();
-      ctx.roundRect(-w * 0.5, -bodyH * 0.62, w, bodyH * 0.62, [4, 4, 3, 3]);
-      ctx.fill();
-      // Cabin
-      ctx.beginPath();
-      ctx.moveTo(-w * 0.28, -bodyH * 0.62);
-      ctx.lineTo(-w * 0.16, -bodyH);
-      ctx.lineTo(w * 0.22, -bodyH);
-      ctx.lineTo(w * 0.34, -bodyH * 0.62);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#082f49';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // Glass
-      ctx.fillStyle = 'rgba(186, 230, 253, 0.85)';
-      ctx.beginPath();
-      ctx.moveTo(-w * 0.23, -bodyH * 0.66);
-      ctx.lineTo(-w * 0.14, -bodyH * 0.94);
-      ctx.lineTo(w * 0.19, -bodyH * 0.94);
-      ctx.lineTo(w * 0.28, -bodyH * 0.66);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Lamps
-    ctx.fillStyle = v.crashed ? '#7f1d1d' : '#fef3c7';
-    ctx.beginPath();
-    ctx.arc(w * 0.46, -bodyH * 0.3, Math.max(1.5, r * 0.16), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath();
-    ctx.arc(-w * 0.47, -bodyH * 0.3, Math.max(1.2, r * 0.13), 0, Math.PI * 2);
-    ctx.fill();
-
-    if (!v.crashed) {
-      // Headlight wash
-      const beam = ctx.createLinearGradient(w * 0.46, 0, w * 0.46 + r * 5, 0);
-      beam.addColorStop(0, 'rgba(254, 243, 199, 0.28)');
-      beam.addColorStop(1, 'rgba(254, 243, 199, 0)');
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.46, -bodyH * 0.3);
-      ctx.lineTo(w * 0.46 + r * 5, -bodyH * 0.3 - r * 1.5);
-      ctx.lineTo(w * 0.46 + r * 5, -bodyH * 0.3 + r * 1.5);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Wheels with rotating spokes
-    const wheelXs = v.type === 'truck' ? [-w * 0.34, w * 0.02, w * 0.34] : [-w * 0.32, w * 0.32];
-    for (const wx of wheelXs) {
-      // Each wheel hangs on its spring: it drops away when unloaded and rises when it takes weight.
-      const wy = v.extensionAt(wx / this.PPM) * this.PPM;
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(wx, wy, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = Math.max(1.5, r * 0.22);
-      ctx.stroke();
-
-      ctx.save();
-      ctx.translate(wx, wy);
-      ctx.rotate(v.wheelAngle);
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = Math.max(1, r * 0.13);
-      ctx.beginPath();
-      for (let i = 0; i < 4; i++) {
-        const a = (i * Math.PI) / 2;
-        ctx.moveTo(0, 0);
-        ctx.lineTo(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62);
-      }
-      ctx.stroke();
-      ctx.fillStyle = '#cbd5e1';
-      ctx.beginPath();
-      ctx.arc(0, 0, Math.max(1, r * 0.16), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    ctx.restore();
-  },
-
   drawParticles(ctx) {
     for (const p of this.particles) {
       const s = this.toScreen(p.x, p.y);
@@ -796,6 +763,25 @@ Object.assign(TrussCraftApp.prototype, {
         ctx.beginPath();
         ctx.arc(s.x, s.y, p.size * 0.5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
+      } else if (p.kind === 'piece') {
+        // A broken half-member: the material, with a jagged break at one end
+        const lw = p.len * this.PPM, th = Math.max(2, p.thick * this.PPM);
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, alpha * 2.2);
+        ctx.translate(s.x, s.y);
+        ctx.rotate(p.rot || 0);
+        ctx.fillStyle = p.color;
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-lw / 2, -th / 2); ctx.lineTo(lw / 2, -th / 2);
+        ctx.lineTo(lw / 2 - th * 0.35, -th * 0.12); ctx.lineTo(lw / 2, th * 0.15);
+        ctx.lineTo(lw / 2 - th * 0.25, th / 2); ctx.lineTo(-lw / 2, th / 2);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.fillRect(-lw / 2, -th / 2, lw * 0.9, th * 0.28);
+        ctx.restore();
         ctx.globalAlpha = 1;
       } else {
         ctx.save();

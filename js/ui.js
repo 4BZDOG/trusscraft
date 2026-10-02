@@ -43,6 +43,49 @@ Object.assign(TrussCraftApp.prototype, {
     }
   },
 
+  /**
+   * A small picture of the level's world — sky, sun, hills, cliffs, water, and a bridge —
+   * drawn from its theme, so every level card and mission brief has a look of its own.
+   */
+  levelArt(lvl, cls = '', W = 120) {
+    const th = lvl.theme || THEMES.blueprint;
+    const t = lvl.terrain;
+    const uid = 'la' + lvl.id + Math.floor(Math.random() * 1e6);
+    const span = spanOf(lvl);
+    const cx = W / 2;
+    const half = clamp(span * 2.1, 22, 46);
+    const x0 = cx - half, x1 = cx + half;
+    const f = (n) => n.toFixed(1);
+    const hill = (base, amp, seed, color) => {
+      let d = `M0 ${f(base)}`;
+      for (let x = 6; x <= W; x += 6) d += ` L${x} ${f(base + Math.sin(x * 0.07 + seed) * amp + Math.sin(x * 0.19 + seed * 2) * amp * 0.4)}`;
+      return `<path d="${d} V64 H0Z" fill="${color}"/>`;
+    };
+    const sunX = th.sun ? th.sun.x * W : 0, sunY = th.sun ? 30 + th.sun.y * 4 : 0;
+    const sun = th.sun
+      ? `<circle cx="${f(sunX)}" cy="${f(sunY)}" r="${f(th.sun.r / 3)}" fill="rgba(${th.sun.glow},0.25)"/><circle cx="${f(sunX)}" cy="${f(sunY)}" r="${f(th.sun.r / 6)}" fill="${th.sun.core}"/>`
+      : '';
+    let stars = '';
+    if (th.stars > 0) for (let i = 0; i < Math.round(W / 9); i++) stars += `<circle cx="${f(hash1(i * 1.7) * W)}" cy="${f(hash1(i * 4.3) * 24)}" r="0.7" fill="#fff" opacity="${(0.35 + th.stars * 0.5).toFixed(2)}"/>`;
+    const pier = t.pier ? `<path d="M${f(cx - 5)} 38 H${f(cx + 5)} L${f(cx + 8)} 64 H${f(cx - 8)} Z" fill="${th.rock.mid}"/><rect x="${f(cx - 5)}" y="36" width="10" height="2.4" fill="${th.grass.top}"/>` : '';
+    const mid = cx, q = (x1 - x0) / 4;
+    const dy = lvl.constraint && lvl.constraint.type === 'above' ? 10 : -9;      // truss below the deck on the gorge level
+    const truss = `<path d="M${f(x0)} 37 L${f(x0 + q)} ${37 + dy} L${f(mid)} 37 L${f(mid + q)} ${37 + dy} L${f(x1)} 37 M${f(x0 + q)} ${37 + dy} H${f(mid + q)}" stroke="#38bdf8" stroke-width="1.5" fill="none" stroke-linejoin="round"/>`;
+    return `<svg class="level-art ${cls}" viewBox="0 0 ${W} 64" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="${uid}s" x1="0" y1="0" x2="0" y2="1">${th.sky.map((c, i) => `<stop offset="${[0, 0.42, 0.74, 1][i]}" stop-color="${c}"/>`).join('')}</linearGradient>
+        <linearGradient id="${uid}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${th.water.top}"/><stop offset="0.5" stop-color="${th.water.mid}"/><stop offset="1" stop-color="${th.water.deep}"/></linearGradient>
+      </defs>
+      <rect width="${W}" height="64" fill="url(#${uid}s)"/>${stars}${sun}
+      ${hill(36, 7, 1, th.hills[0])}${hill(41, 5, 4, th.hills[1])}
+      <rect y="50" width="${W}" height="14" fill="url(#${uid}w)"/>
+      ${pier}
+      <path d="M0 38 H${f(x0 + 1)} L${f(x0 - 2)} 64 H0Z" fill="${th.rock.mid}"/><path d="M${W} 38 H${f(x1 - 1)} L${f(x1 + 2)} 64 H${W}Z" fill="${th.rock.mid}"/>
+      <rect x="0" y="35.5" width="${f(x0 + 1)}" height="3" fill="${th.grass.top}"/><rect x="${f(x1 - 1)}" y="35.5" width="${f(W - x1 + 1)}" height="3" fill="${th.grass.top}"/>
+      <rect x="${f(x0)}" y="36.2" width="${f(x1 - x0)}" height="2.2" rx="0.6" fill="#a7b2c4"/>${truss}
+    </svg>`;
+  },
+
   showBrief() {
     const lvl = this.level;
     const budgetText = isUnlimited(lvl)
@@ -52,6 +95,7 @@ Object.assign(TrussCraftApp.prototype, {
       eyebrow: `Mission brief · Key concept: ${lvl.concept}`,
       title: lvl.title,
       body: `
+        <div class="brief-art">${this.levelArt(lvl, '', 240)}<span class="brief-art-tag">${lvl.theme ? lvl.theme.name : ''}</span></div>
         <p style="color:var(--text); font-weight:600; margin-bottom:10px;">${lvl.goal}</p>
         <p>${lvl.desc}</p>
         <div class="stat-grid">
@@ -184,6 +228,12 @@ Object.assign(TrussCraftApp.prototype, {
     return notes;
   },
 
+  /** Show a dialog a moment from now, so the collapse (or the cheer) can be seen before it is covered. */
+  queueModal(delay, spec) {
+    this.pendingModal = spec;
+    this.pendingModalAt = this.time + delay;
+  },
+
   showDebrief(success) {
     if (this.resultShown) return;
     this.resultShown = true;
@@ -304,7 +354,7 @@ Object.assign(TrussCraftApp.prototype, {
         ? `<p style="margin-top:10px; color:#fcd34d;">⚠ ${this.brokenCount} member${this.brokenCount > 1 ? 's' : ''} broke during the crossing — the bridge survived, but it is damaged. ${this.explainFailure(this.firstFailure, this.analysis)}</p>`
         : '';
 
-      this.showModal({
+      this.queueModal(success ? 0.9 : 1.5, {
         eyebrow: 'Load test complete',
         title: '✅ Bridge certified',
         titleClass: 'win',
@@ -328,7 +378,7 @@ Object.assign(TrussCraftApp.prototype, {
         ? `<p style="margin-top:12px;"><b>Also worth fixing:</b></p><ul style="margin:6px 0 0 18px; line-height:1.7;">${notes.map(n => `<li>${n}</li>`).join('')}</ul>`
         : '';
 
-      this.showModal({
+      this.queueModal(success ? 0.9 : 1.5, {
         eyebrow: 'Load test failed',
         title: '💥 Structural collapse',
         titleClass: 'lose',
@@ -353,7 +403,7 @@ Object.assign(TrussCraftApp.prototype, {
         : `${lvl.concept} · ${isUnlimited(lvl) ? (lvl.par ? 'par $' + lvl.par.toLocaleString() : 'no budget limit') : 'budget $' + lvl.budget.toLocaleString()}`;
       return `
         <button class="level-card ${i === this.currentLevelIdx ? 'current' : ''}" onclick="app.switchLevel(${i});">
-          <div class="lc-num">${i + 1}</div>
+          <div class="lc-thumb">${this.levelArt(lvl)}<span class="lc-num">${i + 1}</span></div>
           <div class="lc-main">
             <div class="lc-title">${lvl.title.replace(/^\d+\.\s*/, '')}</div>
             <div class="lc-sub">${sub}</div>
