@@ -16,7 +16,7 @@ No install, no build step, no dependencies — one HTML file that runs offline.
 |---|---|
 | **Tension vs compression** | Members colour blue when stretched, red when squashed; brightness shows how close they are to failing |
 | **Triangulation** | A flat deck bends until the slab cracks; the same deck with triangles added sags ~20x less and survives |
-| **Euler buckling** | Compression capacity falls with the square of member length, so long struts fail first |
+| **Euler buckling** | Compression capacity falls steeply with member length (close to its square), so long struts fail first |
 | **Deflection limits** | Roadway has no bending strength of its own. Past a deflection of span ÷ 40 the deck slab cracks and the bridge drops the vehicle |
 | **Choosing a bridge type** | Each level forbids the previous level's answer — below the deck, then above it, then with only one bank to anchor to |
 | **Material economy** | Every member costs money, so the challenge is the *cheapest* structure that stands up |
@@ -48,6 +48,7 @@ so a working bridge is easy, an efficient one is not.
 | Action | Key |
 |---|---|
 | Select material | <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> |
+| Move a joint (every member attached resizes with it) | <kbd>M</kbd> |
 | Eraser | <kbd>E</kbd> |
 | Run / stop the load test | <kbd>Space</kbd> |
 | Show force vectors | <kbd>V</kbd> |
