@@ -2,7 +2,7 @@
 /** Unit tests for the vehicle model. No browser and no dependencies: `node --test tests/vehicle.test.js`. */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { Vehicle, surfaceBelow, vehicleTypeFor } = require('../vehicle.js');
+const { Vehicle, surfaceBelow, vehicleTypeFor } = require('../js/vehicle.js');
 
 const TERRAIN = { leftBank: 4, rightBank: 12, groundY: 7, waterY: 10.5 };
 const DT = 1 / 960;                                  // the game's substep at 60 fps

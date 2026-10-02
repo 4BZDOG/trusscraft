@@ -6,7 +6,7 @@ A small browser game for teaching **statics**: students build bridges from
 roadway, timber, steel and cable, then run a live load test and watch the forces
 appear in their structure.
 
-No install, no build step, no dependencies — two static files (`index.html` and `vehicle.js`) that run offline.
+No install, no build step, no dependencies — plain static files that run offline.
 
 <!-- Add a screenshot here: drag an image into a GitHub issue, then paste the URL -->
 
@@ -60,7 +60,7 @@ force in kilonewtons and how much of its capacity it is using.
 
 ## Using it in class
 
-- Runs from the live link above, or download `index.html` and `vehicle.js` together and open `index.html` directly —
+- Runs from the live link above, or download the whole folder (`index.html` plus `css/` and `js/`) and open `index.html` directly —
   it works with no network connection.
 - Progress and stars are stored per-browser in `localStorage`; it degrades gracefully
   if storage is blocked.
@@ -78,9 +78,48 @@ force in kilonewtons and how much of its capacity it is using.
 - Verlet integration with position-based dynamics constraint relaxation, 16 substeps
   per frame; axial force from strain, with a length-scaled Euler buckling penalty
   in compression.
-- The vehicle (`vehicle.js`) is a rigid body on two spring-and-damper wheels with a cruise
+- The vehicle (`js/vehicle.js`) is a rigid body on two spring-and-damper wheels with a cruise
   controller: it keeps momentum in the air, slows on climbs, pitches when a wheel loses
   support, and stops against the cliffs and the rock stack. The force each wheel carries is
   what loads the deck, so a bounce or a landing stresses the bridge harder than a steady roll.
   It has no DOM dependencies and can be run under Node for testing.
 - Procedurally generated audio and terrain; nothing is loaded from the network.
+
+## Project layout
+
+```
+index.html          page structure only
+css/style.css       all styling
+js/config.js        materials, constants and the seven levels
+js/audio.js         procedural sound (Web Audio)
+js/vehicle.js       the vehicle model; no DOM, so it runs under Node too
+js/app.js           TrussCraftApp: state, camera, undo, editing, structural analysis, frame loop
+js/ui.js            dialogs, briefs and debriefs, the tour, input handling
+js/simulation.js    the load test: solver, failures, particles
+js/render.js        everything drawn on the canvas
+js/main.js          starts the game
+tests/              see below
+```
+
+`ui.js`, `simulation.js` and `render.js` add their methods to the `TrussCraftApp` class that
+`app.js` defines, so they must load after it. They are plain scripts rather than ES modules
+so the game still opens straight from the file system.
+
+## Tests
+
+The game has no dependencies; the tests do (Playwright, for a headless browser).
+
+```
+npm install
+npx playwright install chromium
+npm test                 # everything
+npm run test:unit        # vehicle model, no browser, runs in under a second
+npm run test:game        # the game in headless Chromium: lesson, editing, keyboard, layout, accessibility
+npm run test:balance     # 75 truss designs against a stored baseline (about 4 minutes)
+```
+
+The balance test matters most when changing the vehicle, the solver or the materials. Level
+budgets and star thresholds were measured against how the vehicle loads the deck, so a change
+that moves these numbers changes how hard the game is. If a shift is intended, re-measure the
+budgets, then `npm run balance:update` and explain why in the commit. GitHub Actions runs all
+three on every pull request.
