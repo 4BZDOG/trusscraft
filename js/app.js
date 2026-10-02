@@ -37,6 +37,9 @@ class TrussCraftApp {
     this.firstFailure = null;
     this.brokenCount = 0;
     this.testElapsed = 0;           // simulated seconds since the test began
+    this.physicsClock = 0;          // simulated time not yet consumed by a solver step
+    this.testStartAnalysis = null;  // analysis of the design as it was when the test began
+    this.testStartInclined = false; // whether that design's roadway rose or fell
     this.maxSag = 0;
     this.currentSag = 0;
     this.sagWarned = false;
@@ -802,6 +805,7 @@ class TrussCraftApp {
     this.drawConnectionWarnings(ctx);
     this.drawGhostStrut(ctx);
     this.drawNodes(ctx);
+    this.drawFailureMarker(ctx);
     this.drawMovePreview(ctx);
     this.drawVehicle(ctx);
     this.drawParticles(ctx);

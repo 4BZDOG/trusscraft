@@ -39,12 +39,15 @@ Object.assign(TrussCraftApp.prototype, {
     }
 
     this.preTestState = this.snapshotState();
+    this.testStartAnalysis = a;
+    this.testStartInclined = this.members.some(m => m.mat === 'road' && Math.abs(m.n2.y - m.n1.y) > 0.2);
     this.mode = 'test';
     this.maxStressObserved = 0;
     this.firstFailure = null;
     this.brokenCount = 0;
     this.resultShown = false;
     this.testElapsed = 0;
+    this.physicsClock = 0;
     this.maxSag = 0;
     this.currentSag = 0;
     this.sagWarned = false;
@@ -99,14 +102,40 @@ Object.assign(TrussCraftApp.prototype, {
     document.getElementById('ui-stress-bar').style.width = Math.min(100, pct) + '%';
   },
 
+  /**
+   * Advance the test by one frame's worth of simulated time, in fixed solver steps. The frame
+   * only decides how many steps to run; the step itself never changes, so results do not depend
+   * on frame rate. Slow motion and 2x scale the simulated time, not the step.
+   */
   stepPhysics(dt) {
     if (this.mode !== 'test') return;
 
-    const subSteps = 16;
     const timeScale = this.slowmo > 0 ? lerp(0.16, 1, 1 - this.slowmo) : 1;
-    const subDt = (dt * this.simSpeed * timeScale) / subSteps;
+    this.physicsClock += dt * this.simSpeed * timeScale;
+    let steps = Math.floor(this.physicsClock / PHYSICS_DT + 1e-6);
+    if (steps > MAX_STEPS_PER_FRAME) { steps = MAX_STEPS_PER_FRAME; this.physicsClock = 0; }
+    else this.physicsClock = Math.max(0, this.physicsClock - steps * PHYSICS_DT);
 
-    for (let step = 0; step < subSteps; step++) {
+    for (let i = 0; i < steps; i++) this.solveStep(PHYSICS_DT);
+    this.testElapsed += steps * PHYSICS_DT;
+
+    this.measureSag();
+    this.setStressMeter(Math.min(100, Math.round(this.maxStressObserved * 100)));
+    this.updateAnalysisPanel();
+
+    // Nothing has happened for a long time — the vehicle is probably stuck.
+    if (this.vehicle && !this.vehicle.crashed && !this.vehicle.escaped &&
+        this.testElapsed > STUCK_TIMEOUT && !this.resultShown) {
+      this.vehicle.crashed = true;
+      audio.stopEngine();
+      audio.playFailure();
+      this.showDebrief(false);
+    }
+  },
+
+  /** One fixed solver step: integrate the joints, relax the members, move the vehicle. */
+  solveStep(subDt) {
+    {
       // --- 1. Verlet integration ---
       for (const n of this.nodes) {
         if (n.fixed) continue;
@@ -164,23 +193,9 @@ Object.assign(TrussCraftApp.prototype, {
       }
 
       // --- 3. Vehicle dynamics & load transfer ---
-      if (this.vehicle && !this.vehicle.crashed) this.stepVehicle(subDt, subSteps);
+      if (this.vehicle && !this.vehicle.crashed) this.stepVehicle(subDt);
 
       this.maxStressObserved = Math.max(this.maxStressObserved, peakStress);
-    }
-
-    this.testElapsed += subDt * subSteps;
-    this.measureSag();
-    this.setStressMeter(Math.min(100, Math.round(this.maxStressObserved * 100)));
-    this.updateAnalysisPanel();
-
-    // Nothing has happened for a long time — the vehicle is probably stuck.
-    if (this.vehicle && !this.vehicle.crashed && !this.vehicle.escaped &&
-        this.testElapsed > STUCK_TIMEOUT && !this.resultShown) {
-      this.vehicle.crashed = true;
-      audio.stopEngine();
-      audio.playFailure();
-      this.showDebrief(false);
     }
   },
 
@@ -271,7 +286,7 @@ Object.assign(TrussCraftApp.prototype, {
     this.impact((m.n1.x + m.n2.x) / 2, (m.n1.y + m.n2.y) / 2, 1);
   },
 
-  stepVehicle(subDt, subSteps) {
+  stepVehicle(subDt) {
     const v = this.vehicle;
     const t = this.level.terrain;
 
@@ -280,7 +295,7 @@ Object.assign(TrussCraftApp.prototype, {
     // The force each wheel is really carrying goes into the deck joints under it.
     for (const c of v.contacts) {
       if (!c.member) continue;
-      const nudge = ((c.load * subDt) / subSteps) * DECK_LOAD_GAIN;
+      const nudge = c.load * subDt * DECK_LOAD_GAIN;
       if (!c.member.n1.fixed) c.member.n1.y += (1 - c.t) * nudge;
       if (!c.member.n2.fixed) c.member.n2.y += c.t * nudge;
     }
