@@ -788,6 +788,8 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   .meter { min-width: 0; }
   .meter-track { display: none; }
   .meter-label { flex-direction: row; align-items: baseline; gap: 5px; margin-bottom: 0; }
+  .meter-sub { display: none; }
+  .meter-ico { width: 18px; height: 18px; }
   #hud-objectives { width: 190px; font-size: 0.7rem; }
   #hud-legend { display: none; }
 }
@@ -801,6 +803,8 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   #btn-test, #btn-edit { flex-grow: 2.4 !important; position: static; }
 }
 @media (max-width: 700px) {
+  .meter-ico { display: none; }
+  .meters { gap: 8px; }
   .btn .lbl { display: none; }
   #level-pill { display: none; }
   .brand-sub { display: none; }
@@ -822,6 +826,12 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
   .mat-btn { padding: 6px 8px 6px 7px; flex-direction: row; }
   #btn-test .btn-long, #btn-edit .btn-long { display: none; }
   .divider { margin: 0 2px; }
+}
+/* On the very smallest landscape screens there is no room for everything, so Test comes first */
+@media (max-height: 520px) and (orientation: landscape) and (max-width: 700px) {
+  #toolbar .tool-cluster:last-child { order: -1; }
+  #btn-test, #btn-edit { order: -1; position: static; }
+  .swatch { width: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
