@@ -40,7 +40,8 @@ const SUSPENSION = {
   dampingRatio: 0.7,        // of critical: settles in about one bounce
   stopStiffness: 25,        // bump stop, as a multiple of the spring rate
   maxLoadFactor: 4,         // cap on a wheel's force, in multiples of its static share
-  maxRate: 4                // m/s cap on the compression rate fed to the damper (stops spikes at steps)
+  maxRate: 3,               // m/s cap on the compression rate fed to the damper (stops spikes at steps)
+  surfaceFilter: 0.03       // s: a tyre and a stiff damper cannot follow millimetre jitter in a light deck
 };
 
 const DRIVE = {
@@ -120,6 +121,7 @@ class Vehicle {
     this.kStop = this.k * SUSPENSION.stopStiffness;
     this.damping = 2 * SUSPENSION.dampingRatio * Math.sqrt(this.k * share);
     this.maxLoad = share * gravity * SUSPENSION.maxLoadFactor;
+    this.weightShare = share * gravity;     // static load on one wheel, N
     this.inertia = INERTIA_SCALE * mass * (this.width * this.width + BODY_HEIGHT * BODY_HEIGHT) / 12;
 
     // Start on the near bank, already at cruising speed, resting on its springs.
@@ -134,7 +136,7 @@ class Vehicle {
     this.wheelAngle = 0;
 
     const rest = SUSPENSION.extension - SUSPENSION.staticCompression;
-    this.wheels = [0, 1].map(() => ({ contact: true, c: SUSPENSION.staticCompression, load: share * gravity, ext: rest }));
+    this.wheels = [0, 1].map(() => ({ surfY: terrain.groundY, contact: true, c: SUSPENSION.staticCompression, load: share * gravity, ext: rest }));
     this.contacts = [];        // this step's { member, t, load } on deck members, for the solver
     this.grounded = true;
     this.landing = 0;          // approach speed of the latest touchdown, cleared by the caller
@@ -166,6 +168,12 @@ class Vehicle {
         const s = surfaceBelow(hx + off, hy - 0.15, members, terrain);
         if (s && (!surf || s.y < surf.y)) surf = s;
       }
+      if (surf) {
+        // Smooth the surface the wheel sees. Deck joints in a position-based solver jitter by a
+        // millimetre or so per step, and a stiff damper would turn that into violent wheel hop.
+        w.surfY = w.contact ? w.surfY + (surf.y - w.surfY) * Math.min(1, dt / SUSPENSION.surfaceFilter) : surf.y;
+        surf.y = w.surfY;
+      }
       const cv = surf ? hy + this.reach - surf.y : 0;          // vertical compression
       if (!surf || cv <= 0) { w.contact = false; w.c = 0; w.load = 0; continue; }
 
@@ -184,7 +192,9 @@ class Vehicle {
       const rx = hx - this.x, ry = surf.y - this.y;
       fx += Fx; fy += Fy; torque += rx * Fy - ry * Fx;
       hits.push({ w, lx, rx, ry, cosP, sinP, surfY: surf.y });
-      this.contacts.push({ member: surf.member, t: surf.t, load: F * cosP });
+      // The deck is only ever asked to carry the weight resting on the wheel, never the spike
+      // from a bounce: the solver's joints are soft and chase a spring's force into oscillation.
+      this.contacts.push({ member: surf.member, t: surf.t, load: Math.min(F, this.weightShare) * cosP });
     }
 
     // --- Drive: a driver holding a set speed, limited by engine power and tyre grip ---
