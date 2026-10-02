@@ -62,12 +62,109 @@ function bucklingCapacity(matKey, length) {
 // ============================================================
 //  CURRICULUM LEVELS
 // ============================================================
+// ============================================================
+//  WORLD THEMES
+// ============================================================
+// Every level is its own place, so each has a palette and some life of its own. Colours run
+// top-to-bottom for the sky. `ambient` names the extra things drawn in environment.js.
+const THEMES = {
+  // 1 — a bright, friendly morning for the first lesson
+  morning: {
+    name: 'Morning',
+    sky: ['#4a98dc', '#86c3ec', '#cfe9f3', '#fde3b8'],
+    sun: { x: 0.74, y: -3.4, r: 30, core: '#fffbe2', glow: '255, 226, 150' },
+    stars: 0, cloud: { fill: 'rgba(255,255,255,0.86)', shade: 'rgba(170,200,225,0.55)' },
+    hills: ['#8cb8aa', '#69a58f', '#488b72'],
+    water: { top: '#62d8e6', mid: '#2aa2c9', deep: '#0f5b86', line: 'rgba(255,255,255,0.9)', glint: 'rgba(255,255,255,0.65)' },
+    rock: { top: '#b99f7e', mid: '#917a5e', bottom: '#5e4b3a', edge: '#4d3d2f', light: 'rgba(255,236,205,0.16)', dark: 'rgba(40,25,10,0.22)' },
+    grass: { base: '#58a644', top: '#7bc65a', tuft: '#92d86c' },
+    shade: '22, 44, 60', depth: 0.62, mist: { rgb: '255,255,255', a: 0.28 },
+    props: 'pines', ambient: ['birds']
+  },
+  // 2 — a misty canyon with cargo airships drifting overhead (the shipping-clearance level)
+  gorge: {
+    name: 'Misty gorge',
+    sky: ['#5c7c92', '#86a2b2', '#b7c9cf', '#dbe3df'],
+    sun: null, stars: 0, cloud: { fill: 'rgba(238,244,247,0.78)', shade: 'rgba(150,172,186,0.55)' },
+    hills: ['#7e9c9c', '#628786', '#466f6f'],
+    water: { top: '#62b8b3', mid: '#2e8189', deep: '#103f4f', line: 'rgba(235,250,250,0.85)', glint: 'rgba(235,250,250,0.55)' },
+    rock: { top: '#93a1aa', mid: '#6b7883', bottom: '#3b4651', edge: '#323d46', light: 'rgba(220,235,245,0.14)', dark: 'rgba(10,20,30,0.24)' },
+    grass: { base: '#4d8b5a', top: '#68ac6d', tuft: '#84c884' },
+    shade: '18, 32, 42', depth: 0.7, mist: { rgb: '235,244,247', a: 0.42 },
+    props: 'pines', ambient: ['airships', 'mist']
+  },
+  // 3 — a storm over deep water: rain, whitecaps and the odd flash of lightning
+  storm: {
+    name: 'Storm',
+    sky: ['#18212f', '#2a374c', '#43536a', '#5d6d83'],
+    sun: null, stars: 0, cloud: { fill: 'rgba(70,84,106,0.82)', shade: 'rgba(30,40,56,0.6)' },
+    hills: ['#3b4a5e', '#2f3d51', '#243244'],
+    water: { top: '#5a8bab', mid: '#2b5775', deep: '#0b2132', line: 'rgba(225,242,255,0.85)', glint: 'rgba(225,242,255,0.5)' },
+    rock: { top: '#505d6d', mid: '#384352', bottom: '#1f2631', edge: '#161c26', light: 'rgba(170,190,215,0.12)', dark: 'rgba(0,0,0,0.3)' },
+    grass: { base: '#3b6743', top: '#4d8156', tuft: '#5f9669' },
+    shade: '6, 12, 20', depth: 0.85, mist: { rgb: '170,190,210', a: 0.3 },
+    props: 'pines', ambient: ['rain', 'lightning'], rough: true
+  },
+  // 4 — an industrial dusk for the heavy truck, factories on the skyline
+  golden: {
+    name: 'Industrial dusk',
+    sky: ['#34396a', '#9a5a7e', '#ee8c5c', '#ffd07c'],
+    sun: { x: 0.3, y: -1.4, r: 46, core: '#fff2bc', glow: '255, 172, 92' },
+    stars: 0.2, cloud: { fill: 'rgba(255,196,150,0.55)', shade: 'rgba(120,70,110,0.5)' },
+    hills: ['#6e4665', '#58365a', '#412849'],
+    water: { top: '#f2ab74', mid: '#aa5f70', deep: '#3b2746', line: 'rgba(255,230,190,0.85)', glint: 'rgba(255,236,200,0.6)' },
+    rock: { top: '#9d6c50', mid: '#76523d', bottom: '#47312b', edge: '#3a2823', light: 'rgba(255,200,150,0.15)', dark: 'rgba(30,10,10,0.28)' },
+    grass: { base: '#7c8d3b', top: '#9aae4c', tuft: '#b2c45e' },
+    shade: '30, 14, 30', depth: 0.7, mist: { rgb: '255,190,150', a: 0.22 },
+    props: 'factory', ambient: ['smoke', 'birds'], skyline: 'chimneys'
+  },
+  // 5 — crumbling red sandstone, dust in the air and loose rock falling from the far cliff
+  canyon: {
+    name: 'Red canyon',
+    sky: ['#4a86c6', '#8cb6d8', '#f0cc9c', '#f6b27a'],
+    sun: { x: 0.58, y: -4.2, r: 34, core: '#fff6d2', glow: '255, 204, 124' },
+    stars: 0, cloud: { fill: 'rgba(255,238,215,0.7)', shade: 'rgba(210,150,120,0.5)' },
+    hills: ['#c98c64', '#b2724f', '#8f5640'],
+    water: { top: '#70c6c0', mid: '#308c94', deep: '#124a5a', line: 'rgba(255,250,235,0.85)', glint: 'rgba(255,250,235,0.55)' },
+    rock: { top: '#c6784f', mid: '#9e5739', bottom: '#613527', edge: '#4a2a1f', light: 'rgba(255,205,160,0.18)', dark: 'rgba(40,10,0,0.26)' },
+    grass: { base: '#a9a14b', top: '#c4ba5d', tuft: '#d9d071' },
+    shade: '40, 18, 12', depth: 0.6, mist: { rgb: '255,214,170', a: 0.22 },
+    props: 'cacti', ambient: ['dust', 'pebbles']
+  },
+  // 6 — a wide river valley at sunset, birds going home and fireflies by the bank
+  sunset: {
+    name: 'Sunset valley',
+    sky: ['#2b3c78', '#6c58a4', '#d9779c', '#ffb87c'],
+    sun: { x: 0.78, y: -1.6, r: 40, core: '#ffeab4', glow: '255, 152, 122' },
+    stars: 0.4, cloud: { fill: 'rgba(255,170,170,0.5)', shade: 'rgba(110,70,130,0.5)' },
+    hills: ['#5b4b86', '#463b71', '#342a5b'],
+    water: { top: '#f4a27f', mid: '#b4608b', deep: '#3b2a5e', line: 'rgba(255,230,205,0.85)', glint: 'rgba(255,236,215,0.6)' },
+    rock: { top: '#7e6c88', mid: '#5c4e69', bottom: '#352d44', edge: '#2a2338', light: 'rgba(255,200,220,0.14)', dark: 'rgba(15,5,25,0.3)' },
+    grass: { base: '#5d8d54', top: '#7aaa66', tuft: '#92c27a' },
+    shade: '26, 18, 46', depth: 0.7, mist: { rgb: '255,190,170', a: 0.22 },
+    props: 'poplars', ambient: ['birds', 'fireflies']
+  },
+  // 7 — the sandbox is the drawing board: a blueprint-grid night
+  blueprint: {
+    name: 'Blueprint',
+    sky: ['#0a1428', '#0f2038', '#14304f', '#1b4166'],
+    sun: null, stars: 0.6, cloud: { fill: 'rgba(148,178,214,0.09)', shade: 'rgba(148,178,214,0.04)' },
+    hills: ['#16273c', '#1a2f47', '#1f3852'],
+    water: { top: '#2f9fd0', mid: '#14649c', deep: '#08203c', line: 'rgba(125,211,252,0.7)', glint: 'rgba(186,230,253,0.45)' },
+    rock: { top: '#3a4d6b', mid: '#2a3b56', bottom: '#16243a', edge: '#3d5675', light: 'rgba(90,116,150,0.16)', dark: 'rgba(10,17,30,0.28)' },
+    grass: { base: '#3f5d3a', top: '#4d7044', tuft: '#5c8450' },
+    shade: '5, 9, 18', depth: 0.9, mist: { rgb: '148,178,214', a: 0.14 },
+    props: 'markers', ambient: ['blueprint'], blueprint: true
+  }
+};
+
 // Array order is the play order and the numbers in the titles. `id` is the key
 // saved progress is stored under, so it must never change once shipped — which is
 // why the ids are not in sequence (the Cantilever and Long Haul were added later).
 const LEVELS = [
   {
     id: 1,
+    theme: THEMES.morning,
     title: "1. The Simple Span",
     goal: "Carry a 1.4 tonne car across an 8 metre gap.",
     desc: "Start by laying a <b>roadway</b> straight across and pressing Test. It will sag, crack and drop the car into the river — a flat deck has nothing to stop it bending. Then brace it: pick a second material and add <b>triangles</b> above or below the deck.",
@@ -81,6 +178,7 @@ const LEVELS = [
   },
   {
     id: 2,
+    theme: THEMES.gorge,
     title: "2. The Deep Gorge",
     goal: "Span a 12 metre canyon with tall ships passing above.",
     desc: "Cargo ships need clear air over the roadway, so <b>nothing may be built above the deck</b>. Everything that holds this bridge up has to hang below it. Use the lower wall anchors and build an arched deck truss down into the gorge.",
@@ -97,6 +195,7 @@ const LEVELS = [
   },
   {
     id: 3,
+    theme: THEMES.storm,
     title: "3. Suspension Towers",
     goal: "Cross 16 metres of water far too deep for piers.",
     desc: "The riverbed is out of reach, so <b>nothing may be built below the deck</b> — the answer that worked in level 2 is useless here. Everything must go <b>above</b> the roadway, and the car has to drive through the middle of it.",
@@ -113,6 +212,7 @@ const LEVELS = [
   },
   {
     id: 4,
+    theme: THEMES.golden,
     title: "4. Heavy Freight",
     goal: "Get a 6.5 tonne freight truck across 14 metres, cheaply.",
     desc: "No restrictions on where you build — the difficulty is the load. This truck is <b>four and a half times</b> level 1's car, and the shallow truss that carried that car will be flattened by it. An all-steel version will not fit the budget, so you have a choice to make: build <b>deeper</b>, or build <b>stronger</b>.",
@@ -128,6 +228,7 @@ const LEVELS = [
   },
   {
     id: 6,
+    theme: THEMES.canyon,
     title: "5. The Cantilever",
     goal: "Reach 9 metres across with only one bank to hold on to.",
     desc: "The far cliff is crumbling rock — <b>no anchor may be fixed to it</b>. Everything you build has to reach back to the near bank, so the bridge must hold its own far end up. Use both the deck-level anchor and the tower above it.",
@@ -145,6 +246,7 @@ const LEVELS = [
   },
   {
     id: 7,
+    theme: THEMES.sunset,
     title: "6. The Long Haul",
     goal: "Carry a 2 tonne car across 20 metres — the widest crossing yet.",
     desc: "More than twice level 1, and the roadway alone eats a third of your money before you brace anything. There is a <b>rock stack</b> mid-river with anchors in it. A single 20 metre span will stand — but landing on the stack is both cheaper and stiffer, and the budget is set so that only the tidier answer earns full marks.",
@@ -160,6 +262,7 @@ const LEVELS = [
   },
   {
     id: 5,
+    theme: THEMES.blueprint,
     title: "7. Engineering Sandbox",
     goal: "Design freely — then beat par.",
     desc: "An open laboratory with anchor points high, low and level. Build a Warren truss, a Pratt truss, an arch, a suspension span or a cantilever, and compare how the forces redistribute. No budget ceiling — instead there is a <b>par of $3,550</b> and a <b>stiffness target</b>. The cheapest bridge that survives this crossing costs $3,225, so par is tight, and the cheapest bridge is far too floppy to earn the other star.",
@@ -203,6 +306,8 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
 // ============================================================
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp  = (a, b, t) => a + (b - a) * t;
+/** Overshoots slightly then settles: used for things that pop into place. */
+const easeOutBack = (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2);
 
 /** Deterministic pseudo-random in [0,1) — keeps terrain from shimmering. */
 function hash1(n) {

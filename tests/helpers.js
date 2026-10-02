@@ -87,6 +87,7 @@ function installHarness() {
       broken: app.brokenCount,
       elapsed: +app.testElapsed.toFixed(1)
     };
+    drive(1.6);                                   // the result dialog opens a moment after the result
     app.stopSimulation(); app.closeModal();
     return out;
   };

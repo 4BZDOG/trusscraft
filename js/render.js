@@ -1,266 +1,10 @@
 /**
  * TRUSSCRAFT — RENDERING
- * Everything drawn on the canvas: scenery, structure, vehicle and effects.
+ * The structure, vehicle and effects drawn on the canvas (the scenery is in environment.js).
  * Adds its methods to TrussCraftApp (see app.js).
  */
 
 Object.assign(TrussCraftApp.prototype, {
-  // ==========================================================
-  //  RENDERING — ENVIRONMENT
-  // ==========================================================
-  drawSky(ctx) {
-    const w = this.viewW, h = this.viewH;
-    const sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#0a1428');
-    sky.addColorStop(0.45, '#132339');
-    sky.addColorStop(0.8, '#1d3149');
-    sky.addColorStop(1, '#24405c');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, w, h);
-
-    // Low sun glow behind the far hills
-    const glowX = w * 0.72, glowY = this.sy(this.level.terrain.groundY - 1.5);
-    const glow = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, w * 0.45);
-    glow.addColorStop(0, 'rgba(251, 191, 130, 0.16)');
-    glow.addColorStop(0.4, 'rgba(190, 130, 110, 0.07)');
-    glow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, w, h);
-
-    // Stars, fading out toward the horizon
-    ctx.fillStyle = '#e2e8f0';
-    for (let i = 0; i < 46; i++) {
-      const sxp = hash1(i * 1.7) * w;
-      const syp = hash1(i * 4.3) * h * 0.42;
-      const tw = 0.35 + 0.35 * Math.sin(this.time * 1.6 + i);
-      ctx.globalAlpha = tw * (1 - syp / (h * 0.5)) * 0.75;
-      const s = hash1(i * 9.1) > 0.85 ? 1.8 : 1.1;
-      ctx.fillRect(sxp, syp, s, s);
-    }
-    ctx.globalAlpha = 1;
-  },
-
-  drawClouds(ctx) {
-    ctx.save();
-    for (const c of this.clouds) {
-      c.x += c.speed * this.frameDt;
-      if (this.sx(c.x) > this.viewW + 220) c.x = this.toWorld(-220, 0).x;
-      const p = this.toScreen(c.x, c.y);
-      const s = c.scale * this.PPM * 0.04;
-      ctx.fillStyle = 'rgba(148, 178, 214, 0.045)';
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y, 46 * s, 12 * s, 0, 0, Math.PI * 2);
-      ctx.ellipse(p.x - 26 * s, p.y + 4 * s, 30 * s, 9 * s, 0, 0, Math.PI * 2);
-      ctx.ellipse(p.x + 30 * s, p.y + 3 * s, 26 * s, 8 * s, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-  },
-
-  /** Layered parallax hills behind the gorge. */
-  drawHills(ctx) {
-    const w = this.viewW;
-    const baseY = this.sy(this.level.terrain.groundY);
-    const layers = [
-      { amp: 46, freq: 0.0042, off: 0,   y: baseY - 40, color: '#16273c' },
-      { amp: 34, freq: 0.0068, off: 120, y: baseY - 16, color: '#1a2f47' },
-      { amp: 22, freq: 0.0105, off: 340, y: baseY + 4,  color: '#1f3852' }
-    ];
-    for (const L of layers) {
-      ctx.fillStyle = L.color;
-      ctx.beginPath();
-      ctx.moveTo(0, this.viewH);
-      for (let x = 0; x <= w; x += 8) {
-        const n = noise1((x + L.off) * L.freq * 12) * 2 - 1;
-        const n2 = noise1((x + L.off) * L.freq * 34) * 2 - 1;
-        ctx.lineTo(x, L.y + n * L.amp + n2 * L.amp * 0.28);
-      }
-      ctx.lineTo(w, this.viewH);
-      ctx.closePath();
-      ctx.fill();
-    }
-  },
-
-  /** The gorge is far away and deep — darken it so it reads as a void, not a panel. */
-  drawGorgeDepth(ctx) {
-    const t = this.level.terrain;
-    const topY = this.sy(t.groundY - 2.2);
-    const g = ctx.createLinearGradient(0, topY, 0, this.viewH);
-    g.addColorStop(0, 'rgba(5, 9, 18, 0)');
-    g.addColorStop(0.35, 'rgba(5, 9, 18, 0.55)');
-    g.addColorStop(1, 'rgba(3, 6, 13, 0.92)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, topY, this.viewW, this.viewH - topY);
-
-    // Mist drifting just above the water
-    const mistY = this.sy(t.waterY);
-    const mist = ctx.createLinearGradient(0, mistY - 70, 0, mistY + 6);
-    mist.addColorStop(0, 'rgba(148, 178, 214, 0)');
-    mist.addColorStop(1, 'rgba(148, 178, 214, 0.13)');
-    ctx.fillStyle = mist;
-    ctx.save();
-    ctx.beginPath();
-    for (let x = 0; x <= this.viewW; x += 10) {
-      const y = mistY - 46 + Math.sin(x * 0.012 + this.time * 0.35) * 12 + Math.sin(x * 0.031 - this.time * 0.2) * 6;
-      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.lineTo(this.viewW, mistY + 6);
-    ctx.lineTo(0, mistY + 6);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  },
-
-  drawWater(ctx) {
-    const t = this.level.terrain;
-    const w = this.viewW, h = this.viewH;
-    const surfaceY = this.sy(t.waterY);
-
-    const grad = ctx.createLinearGradient(0, surfaceY, 0, h);
-    grad.addColorStop(0, 'rgba(56, 189, 248, 0.22)');
-    grad.addColorStop(0.3, 'rgba(14, 100, 160, 0.34)');
-    grad.addColorStop(1, 'rgba(4, 22, 46, 0.85)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, surfaceY, w, h - surfaceY);
-
-    // Reflection of the structure, squashed and rippled
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, surfaceY, w, h - surfaceY);
-    ctx.clip();
-    ctx.globalAlpha = 0.16;
-    ctx.translate(0, surfaceY * 2);
-    ctx.scale(1, -0.85);
-    ctx.filter = 'blur(1px)';
-    this.drawMembers(ctx, true);
-    ctx.filter = 'none';
-    ctx.restore();
-    ctx.globalAlpha = 1;
-
-    // Animated surface: three sine layers
-    for (let layer = 0; layer < 3; layer++) {
-      const amp = 2.4 - layer * 0.6;
-      const speed = 0.9 + layer * 0.45;
-      const wavelength = 90 + layer * 55;
-      ctx.beginPath();
-      ctx.moveTo(0, surfaceY + layer * 3);
-      for (let x = 0; x <= w; x += 6) {
-        const y = surfaceY + layer * 3.2 +
-                  Math.sin((x / wavelength) + this.time * speed) * amp +
-                  Math.sin((x / (wavelength * 0.42)) - this.time * speed * 1.4) * amp * 0.4;
-        ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = layer === 0 ? 'rgba(125, 211, 252, 0.55)' : `rgba(125, 211, 252, ${0.16 - layer * 0.04})`;
-      ctx.lineWidth = layer === 0 ? 2 : 1.4;
-      ctx.stroke();
-    }
-
-    // Specular glints
-    ctx.fillStyle = 'rgba(186, 230, 253, 0.30)';
-    for (let i = 0; i < 22; i++) {
-      const gx = hash1(i * 2.3) * w;
-      const gy = surfaceY + 8 + hash1(i * 5.1) * (h - surfaceY) * 0.55;
-      const len = 8 + hash1(i * 3.7) * 26;
-      const a = 0.5 + 0.5 * Math.sin(this.time * 1.5 + i * 2.1);
-      ctx.globalAlpha = a * 0.3 * (1 - (gy - surfaceY) / Math.max(1, h - surfaceY));
-      ctx.fillRect(gx, gy, len, 1.4);
-    }
-    ctx.globalAlpha = 1;
-  },
-
-  /** Jagged deterministic cliff profile — same shape every frame. */
-  cliffEdgeX(side, y, baseX) {
-    const n = noise1(y * 1.7 + (side === 'left' ? 0 : 91.3));
-    const n2 = noise1(y * 5.2 + (side === 'left' ? 12 : 44));
-    const jag = (n - 0.5) * 0.85 + (n2 - 0.5) * 0.3;
-    return baseX + (side === 'left' ? -0.15 + jag * -0.55 : 0.15 + jag * 0.55);
-  },
-
-  drawCliffs(ctx) {
-    const t = this.level.terrain;
-    const h = this.viewH, w = this.viewW;
-    const bottomWorld = this.toWorld(0, h).y + 1;
-
-    for (const side of ['left', 'right']) {
-      const baseX = side === 'left' ? t.leftBank : t.rightBank;
-      const outerX = side === 'left' ? 0 : w;
-
-      ctx.beginPath();
-      ctx.moveTo(outerX, this.sy(t.groundY));
-      ctx.lineTo(this.sx(baseX), this.sy(t.groundY));
-      for (let y = t.groundY; y <= bottomWorld; y += 0.28) {
-        ctx.lineTo(this.sx(this.cliffEdgeX(side, y, baseX)), this.sy(y));
-      }
-      ctx.lineTo(outerX, h);
-      ctx.closePath();
-
-      ctx.save();
-      ctx.clip();
-
-      // Rock body
-      const rock = ctx.createLinearGradient(0, this.sy(t.groundY), 0, h);
-      rock.addColorStop(0, '#3a4d6b');
-      rock.addColorStop(0.3, '#2a3b56');
-      rock.addColorStop(1, '#16243a');
-      ctx.fillStyle = rock;
-      ctx.fillRect(0, 0, w, h);
-
-      // Sedimentary strata
-      for (let i = 0; i < 22; i++) {
-        const yw = t.groundY + 0.55 + i * 0.62 + noise1(i * 3.3 + (side === 'left' ? 0 : 50)) * 0.3;
-        if (yw > bottomWorld) break;
-        const sh = 3 + hash1(i * 7.7) * 7;
-        ctx.fillStyle = i % 3 === 0 ? 'rgba(90, 116, 150, 0.16)' : 'rgba(10, 17, 30, 0.28)';
-        ctx.fillRect(0, this.sy(yw), w, sh);
-      }
-
-      // Speckled mineral texture
-      for (let i = 0; i < 90; i++) {
-        const px = hash1(i * 1.31 + (side === 'left' ? 0 : 7)) * w;
-        const py = this.sy(t.groundY) + hash1(i * 2.77 + (side === 'left' ? 3 : 11)) * (h - this.sy(t.groundY));
-        ctx.fillStyle = hash1(i * 5.5) > 0.6 ? 'rgba(148, 178, 214, 0.09)' : 'rgba(0, 0, 0, 0.16)';
-        ctx.fillRect(px, py, 2, 2);
-      }
-
-      // Shadow along the gorge face
-      const faceGrad = ctx.createLinearGradient(
-        this.sx(side === 'left' ? baseX - 1.6 : baseX + 1.6), 0, this.sx(baseX), 0);
-      faceGrad.addColorStop(0, 'rgba(0,0,0,0)');
-      faceGrad.addColorStop(1, 'rgba(0,0,0,0.45)');
-      ctx.fillStyle = faceGrad;
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.restore();
-
-      // Cliff outline
-      ctx.strokeStyle = '#3d5675';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Grass / soil cap on the plateau
-      const capY = this.sy(t.groundY);
-      const capX0 = side === 'left' ? 0 : this.sx(baseX);
-      const capW = side === 'left' ? this.sx(baseX) : w - this.sx(baseX);
-      ctx.fillStyle = '#3f5d3a';
-      ctx.fillRect(capX0, capY - 5, capW, 5);
-      ctx.fillStyle = '#4d7044';
-      ctx.fillRect(capX0, capY - 5, capW, 2);
-
-      // Grass tufts
-      ctx.strokeStyle = '#5c8450';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      for (let i = 0; i < 40; i++) {
-        const gx = capX0 + hash1(i * 3.9 + (side === 'left' ? 0 : 61)) * capW;
-        const gh = 3 + hash1(i * 6.1) * 5;
-        const sway = Math.sin(this.time * 1.1 + i) * 1.2;
-        ctx.moveTo(gx, capY - 5);
-        ctx.lineTo(gx + sway, capY - 5 - gh);
-      }
-      ctx.stroke();
-    }
-  },
-
   /** The level's no-build zone, drawn so the rule is visible before it is broken. */
   drawZone(ctx) {
     const c = this.level.constraint;
@@ -322,105 +66,7 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.textAlign = 'left';
   },
 
-  /** Mid-river rock stack that carries anchors, drawn to match the cliffs. */
-  drawPier(ctx) {
-    const t = this.level.terrain;
-    if (!t.pier) return;
-    const p = t.pier;
-    const cx = this.sx(p.x);
-    const top = this.sy(p.topY);
-    const halfTop = (p.width / 2) * this.PPM;
-    const halfBot = (p.width / 2) * 1.9 * this.PPM;
-    const h = this.viewH;
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(cx - halfTop, top);
-    for (let y = p.topY; y <= this.toWorld(0, h).y + 1; y += 0.3) {
-      const k = (y - p.topY) / 6;
-      const w = lerp(halfTop, halfBot, clamp(k, 0, 1));
-      const jag = (noise1(y * 2.1 + 30) - 0.5) * 0.28 * this.PPM;
-      ctx.lineTo(cx + w + jag, this.sy(y));
-    }
-    ctx.lineTo(cx + halfBot, h);
-    ctx.lineTo(cx - halfBot, h);
-    for (let y = this.toWorld(0, h).y + 1; y >= p.topY; y -= 0.3) {
-      const k = (y - p.topY) / 6;
-      const w = lerp(halfTop, halfBot, clamp(k, 0, 1));
-      const jag = (noise1(y * 2.1 + 77) - 0.5) * 0.28 * this.PPM;
-      ctx.lineTo(cx - w + jag, this.sy(y));
-    }
-    ctx.closePath();
-    ctx.save();
-    ctx.clip();
-
-    const rock = ctx.createLinearGradient(0, top, 0, h);
-    rock.addColorStop(0, '#3a4d6b');
-    rock.addColorStop(0.3, '#2a3b56');
-    rock.addColorStop(1, '#16243a');
-    ctx.fillStyle = rock;
-    ctx.fillRect(0, 0, this.viewW, h);
-
-    for (let i = 0; i < 18; i++) {
-      const yw = p.topY + 0.5 + i * 0.62;
-      ctx.fillStyle = i % 3 === 0 ? 'rgba(90, 116, 150, 0.16)' : 'rgba(10, 17, 30, 0.28)';
-      ctx.fillRect(cx - halfBot, this.sy(yw), halfBot * 2, 3 + hash1(i * 4.4) * 6);
-    }
-    const shade = ctx.createLinearGradient(cx - halfBot, 0, cx + halfBot, 0);
-    shade.addColorStop(0, 'rgba(0,0,0,0.35)');
-    shade.addColorStop(0.4, 'rgba(0,0,0,0)');
-    shade.addColorStop(1, 'rgba(0,0,0,0.45)');
-    ctx.fillStyle = shade;
-    ctx.fillRect(cx - halfBot, 0, halfBot * 2, h);
-    ctx.restore();
-
-    ctx.strokeStyle = '#3d5675';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
-
-    // Grass cap so it reads as land, like the banks
-    ctx.fillStyle = '#3f5d3a';
-    ctx.fillRect(cx - halfTop, top - 4, halfTop * 2, 4);
-    ctx.fillStyle = '#4d7044';
-    ctx.fillRect(cx - halfTop, top - 4, halfTop * 2, 2);
-  },
-
-  /** Lattice tower under any anchor standing above its bank. */
-  drawPylons(ctx) {
-    const t = this.level.terrain;
-    const sc = this.PPM / 40;
-    for (const a of this.level.anchors) {
-      if (a.y >= t.groundY - 0.6) continue;
-      const cx = this.sx(a.x);
-      const top = this.sy(a.y);
-      const base = this.sy(t.groundY);
-      const halfTop = 5 * sc, halfBase = 13 * sc;
-
-      ctx.strokeStyle = '#33455f';
-      ctx.lineWidth = 3 * sc;
-      ctx.beginPath();
-      ctx.moveTo(cx - halfTop, top); ctx.lineTo(cx - halfBase, base);
-      ctx.moveTo(cx + halfTop, top); ctx.lineTo(cx + halfBase, base);
-      ctx.stroke();
-
-      // Cross bracing
-      ctx.strokeStyle = '#2a3a52';
-      ctx.lineWidth = 1.6 * sc;
-      ctx.beginPath();
-      const rungs = Math.max(3, Math.round((base - top) / (16 * sc)));
-      for (let i = 0; i <= rungs; i++) {
-        const f = i / rungs, y = lerp(top, base, f), w = lerp(halfTop, halfBase, f);
-        ctx.moveTo(cx - w, y); ctx.lineTo(cx + w, y);
-        if (i < rungs) {
-          const f2 = (i + 1) / rungs, y2 = lerp(top, base, f2), w2 = lerp(halfTop, halfBase, f2);
-          ctx.moveTo(cx - w, y);  ctx.lineTo(cx + w2, y2);
-          ctx.moveTo(cx + w, y);  ctx.lineTo(cx - w2, y2);
-        }
-      }
-      ctx.stroke();
-    }
-  },
 
   drawGrid(ctx) {
     if (this.mode === 'test') return;
@@ -467,7 +113,26 @@ Object.assign(TrussCraftApp.prototype, {
     return (mat === 'road' ? 5.0 : mat === 'steel' ? 3.6 : mat === 'wood' ? 3.0 : 1.5) * sc;
   },
 
+  /** A soft shadow under the whole structure lifts it off the scenery, whatever the palette. */
+  drawStructureShadow(ctx) {
+    const sc = this.PPM / 40;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.lineWidth = 7 * sc;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const m of this.members) {
+      if (m.broken) continue;
+      const a = this.toScreen(m.n1.x, m.n1.y), b = this.toScreen(m.n2.x, m.n2.y);
+      ctx.moveTo(a.x + 3 * sc, a.y + 5 * sc);
+      ctx.lineTo(b.x + 3 * sc, b.y + 5 * sc);
+    }
+    ctx.stroke();
+    ctx.restore();
+  },
+
   drawMembers(ctx, reflection = false) {
+    if (!reflection) this.drawStructureShadow(ctx);
     const dead = (this.mode === 'build' && !reflection && this.analysis)
       ? new Set(this.analysis.deadMembers) : null;
     for (const m of this.members) {
@@ -482,12 +147,60 @@ Object.assign(TrussCraftApp.prototype, {
       }
       this.drawMember(ctx, m, reflection);
     }
-    if (!reflection && this.mode === 'test') this.drawStressLabels(ctx);
+    if (!reflection && this.mode === 'test') {
+      this.drawDeckGauge(ctx);
+      this.drawStressLabels(ctx);
+    }
+  },
+
+  /**
+   * How far the deck has dropped, shown against how far it may. A faint dashed line marks where
+   * the roadway was built, and the Live Load Test card carries a gauge of the allowance used.
+   */
+  drawDeckGauge(ctx) {
+    const sc = this.PPM / 40;
+    ctx.save();
+    ctx.setLineDash([6 * sc, 5 * sc]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (const m of this.members) {
+      if (m.mat !== 'road' || m.n1.restY === undefined || m.n2.restY === undefined) continue;
+      const a = this.toScreen(m.n1.restX, m.n1.restY), b = this.toScreen(m.n2.restX, m.n2.restY);
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Once the deck is using up its allowance, say so at the joint that is dropping most
+    const node = this.worstSagNode;
+    const sag = this.currentSag || 0;
+    const limit = this.sagLimit();
+    const frac = sag / limit;
+    if (node && node.restY !== undefined && frac > 0.45 && !this.deckCracked) {
+      const x = this.sx(node.x), y = this.sy(node.y);
+      const col = frac > 0.8 ? '#fca5a5' : '#fcd34d';
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, 13 * sc + Math.sin(this.time * 8) * 1.5, 0, Math.PI * 2); ctx.stroke();
+      const label = `deck down ${(sag * 100).toFixed(0)} cm`;
+      ctx.font = `700 ${Math.max(9, 10 * sc)}px ui-monospace, Menlo, monospace`;
+      const tw = ctx.measureText(label).width + 12;
+      const ly = y + 24 * sc + 46 * sc;                   // below the load arrows
+      ctx.fillStyle = 'rgba(40, 14, 8, 0.9)';
+      ctx.beginPath(); ctx.roundRect(x - tw / 2, ly - 9, tw, 18, 5); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, x, ly + 0.5);
+    }
+    ctx.restore();
   },
 
   drawMember(ctx, m, reflection) {
+    // A new member grows out of the joint it was dragged from
+    const grow = (m.born === undefined || reflection) ? 1 : easeOutBack(clamp((this.time - m.born) / 0.2, 0, 1));
     const p1 = this.toScreen(m.n1.x, m.n1.y);
-    const p2 = this.toScreen(m.n2.x, m.n2.y);
+    const q2 = this.toScreen(m.n2.x, m.n2.y);
+    const p2 = grow >= 1 ? q2 : { x: lerp(p1.x, q2.x, grow), y: lerp(p1.y, q2.y, grow) };
     const mat = MATERIALS[m.mat];
     const sc = this.PPM / 40;
     const test = this.mode === 'test';
@@ -511,12 +224,26 @@ Object.assign(TrussCraftApp.prototype, {
     const dx = p2.x - p1.x, dy = p2.y - p1.y;
     const lenPx = Math.hypot(dx, dy);
     if (lenPx < 0.5) return;
-    const half = this.memberHalfHeight(m.mat);
+    let half = this.memberHalfHeight(m.mat);
     const base = test ? stressColor(m.force, s) : mat.color;
+
+    // Under tension a member thins as it nears its limit; under compression a slender one bows
+    // sideways before it buckles — the failure the handbook describes, made visible.
+    if (test && !reflection && m.force > 60 && s > 0.4) half *= 1 - 0.3 * (s - 0.4) / 0.6;
+    let bow = 0;
+    if (test && !reflection && m.force < -60 && s > 0.3 && !mat.isRoad) {
+      const slender = clamp(m.restLen / EULER_REF_LEN, 0.45, 1.8);
+      bow = Math.pow((s - 0.3) / 0.7, 1.5) * 0.22 * slender * this.PPM * Math.sign(Math.sin(m.warnPhase * 7) || 1);
+    }
 
     ctx.save();
     ctx.translate(p1.x, p1.y);
     ctx.rotate(Math.atan2(dy, dx));
+    // Close to failing, a member shudders
+    if (test && !reflection && s > 0.88) {
+      const k = this.time * 38 + m.warnPhase * 10;
+      ctx.translate(Math.sin(k) * 0.9 * sc, Math.cos(k * 1.3) * 0.9 * sc);
+    }
 
     // Glow as a member approaches its limit
     if (test && s > 0.5 && !reflection) {
@@ -539,6 +266,13 @@ Object.assign(TrussCraftApp.prototype, {
       ctx.moveTo(1, -half * 0.35); ctx.lineTo(lenPx - 1, -half * 0.35);
       ctx.stroke();
       ctx.restore();
+      return;
+    }
+
+    if (Math.abs(bow) > 0.8) {
+      this.drawBowedMember(ctx, m, lenPx, half, bow, base, hovered);
+      ctx.restore();
+      if (this.showVectors && test && Math.abs(m.force) > 80 && !reflection) this.drawVectorArrows(ctx, p1, p2, m.force);
       return;
     }
 
@@ -615,6 +349,28 @@ Object.assign(TrussCraftApp.prototype, {
     if (this.showVectors && test && Math.abs(m.force) > 80 && !reflection) {
       this.drawVectorArrows(ctx, p1, p2, m.force);
     }
+  },
+
+  /** A strut bent into an arc by compression. Drawn in the member's own frame (see drawMember). */
+  drawBowedMember(ctx, m, lenPx, half, bow, base, hovered) {
+    const path = () => {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(lenPx / 2, 2 * bow, lenPx, 0);
+    };
+    ctx.lineCap = 'butt';
+    ctx.shadowBlur = 0;
+    path(); ctx.strokeStyle = hovered ? '#ffffff' : 'rgba(0,0,0,0.5)'; ctx.lineWidth = half * 2 + 3; ctx.stroke();
+    path(); ctx.strokeStyle = base; ctx.lineWidth = half * 2; ctx.stroke();
+    ctx.save();
+    ctx.translate(0, -half * 0.35);
+    path(); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = Math.max(1, half * 0.5); ctx.stroke();
+    ctx.restore();
+    // the true material stripe, so a wooden strut still reads as wood
+    ctx.save();
+    ctx.translate(0, half * 0.8);
+    path(); ctx.strokeStyle = MATERIALS[m.mat].color; ctx.globalAlpha = 0.9; ctx.lineWidth = Math.max(1, half * 0.25); ctx.stroke();
+    ctx.restore();
   },
 
   /** Percentage chips on the members doing the most work. */
@@ -714,8 +470,15 @@ Object.assign(TrussCraftApp.prototype, {
         ctx.lineWidth = 2 * sc;
         ctx.stroke();
       } else {
-        // Free joint: bolted gusset plate
-        const r = 5 * sc;
+        // Free joint: bolted gusset plate. A new one pops and sends out a ring.
+        const age = n.born === undefined ? 99 : this.time - n.born;
+        const pop = age < 0.4 ? 1 + 0.9 * Math.pow(1 - age / 0.4, 2) : 1;
+        if (age < 0.5) {
+          ctx.strokeStyle = `rgba(125, 211, 252, ${0.8 * (1 - age / 0.5)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(p.x, p.y, (6 + age * 40) * sc, 0, Math.PI * 2); ctx.stroke();
+        }
+        const r = 5 * sc * pop;
         const g = ctx.createRadialGradient(p.x - r * 0.4, p.y - r * 0.4, r * 0.1, p.x, p.y, r);
         g.addColorStop(0, '#ffffff');
         g.addColorStop(0.6, '#cbd5e1');
@@ -970,156 +733,6 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.textAlign = 'left';
   },
 
-  drawVehicle(ctx) {
-    const v = this.vehicle;
-    if (!v) return;
-    const p = this.toScreen(v.x, v.y);
-    const w = v.width * this.PPM;
-    const r = v.wheelRadius * this.PPM;
-    const accent = v.crashed ? '#ef4444' : '#38bdf8';
-
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate(v.tilt + (v.crashed ? Math.sin(this.time * 3) * 0.25 : 0));
-
-    // Contact shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(0, r * 0.95, w * 0.46, r * 0.28, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    const bodyH = v.type === 'truck' ? r * 2.9 : r * 2.2;
-
-    if (v.type === 'truck') {
-      // Freight box
-      const boxW = w * 0.62;
-      const g = ctx.createLinearGradient(0, -bodyH, 0, 0);
-      g.addColorStop(0, '#e2e8f0');
-      g.addColorStop(1, '#94a3b8');
-      ctx.fillStyle = v.crashed ? '#ef4444' : g;
-      ctx.beginPath();
-      ctx.roundRect(-w * 0.5, -bodyH, boxW, bodyH, 2);
-      ctx.fill();
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // Corrugation
-      ctx.strokeStyle = 'rgba(71,85,105,0.5)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = -w * 0.5 + 5; x < -w * 0.5 + boxW - 3; x += 6) {
-        ctx.moveTo(x, -bodyH + 3); ctx.lineTo(x, -3);
-      }
-      ctx.stroke();
-
-      // Cab
-      const cabX = -w * 0.5 + boxW;
-      const cabH = bodyH * 0.72;
-      const cg = ctx.createLinearGradient(0, -cabH, 0, 0);
-      cg.addColorStop(0, '#7dd3fc');
-      cg.addColorStop(1, '#0369a1');
-      ctx.fillStyle = v.crashed ? '#b91c1c' : cg;
-      ctx.beginPath();
-      ctx.roundRect(cabX, -cabH, w * 0.5 - 1, cabH, [3, 5, 2, 2]);
-      ctx.fill();
-      ctx.strokeStyle = '#082f49';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // Windscreen
-      ctx.fillStyle = 'rgba(186, 230, 253, 0.85)';
-      ctx.beginPath();
-      ctx.roundRect(cabX + w * 0.16, -cabH + 3, w * 0.28, cabH * 0.45, 2);
-      ctx.fill();
-    } else {
-      // Car / van silhouette
-      const cg = ctx.createLinearGradient(0, -bodyH, 0, 0);
-      cg.addColorStop(0, v.type === 'van' ? '#a5b4fc' : '#7dd3fc');
-      cg.addColorStop(1, v.type === 'van' ? '#4338ca' : '#0369a1');
-      ctx.fillStyle = v.crashed ? '#ef4444' : cg;
-      ctx.beginPath();
-      ctx.roundRect(-w * 0.5, -bodyH * 0.62, w, bodyH * 0.62, [4, 4, 3, 3]);
-      ctx.fill();
-      // Cabin
-      ctx.beginPath();
-      ctx.moveTo(-w * 0.28, -bodyH * 0.62);
-      ctx.lineTo(-w * 0.16, -bodyH);
-      ctx.lineTo(w * 0.22, -bodyH);
-      ctx.lineTo(w * 0.34, -bodyH * 0.62);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#082f49';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // Glass
-      ctx.fillStyle = 'rgba(186, 230, 253, 0.85)';
-      ctx.beginPath();
-      ctx.moveTo(-w * 0.23, -bodyH * 0.66);
-      ctx.lineTo(-w * 0.14, -bodyH * 0.94);
-      ctx.lineTo(w * 0.19, -bodyH * 0.94);
-      ctx.lineTo(w * 0.28, -bodyH * 0.66);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Lamps
-    ctx.fillStyle = v.crashed ? '#7f1d1d' : '#fef3c7';
-    ctx.beginPath();
-    ctx.arc(w * 0.46, -bodyH * 0.3, Math.max(1.5, r * 0.16), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath();
-    ctx.arc(-w * 0.47, -bodyH * 0.3, Math.max(1.2, r * 0.13), 0, Math.PI * 2);
-    ctx.fill();
-
-    if (!v.crashed) {
-      // Headlight wash
-      const beam = ctx.createLinearGradient(w * 0.46, 0, w * 0.46 + r * 5, 0);
-      beam.addColorStop(0, 'rgba(254, 243, 199, 0.28)');
-      beam.addColorStop(1, 'rgba(254, 243, 199, 0)');
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.46, -bodyH * 0.3);
-      ctx.lineTo(w * 0.46 + r * 5, -bodyH * 0.3 - r * 1.5);
-      ctx.lineTo(w * 0.46 + r * 5, -bodyH * 0.3 + r * 1.5);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Wheels with rotating spokes
-    const wheelXs = v.type === 'truck' ? [-w * 0.34, w * 0.02, w * 0.34] : [-w * 0.32, w * 0.32];
-    for (const wx of wheelXs) {
-      // Each wheel hangs on its spring: it drops away when unloaded and rises when it takes weight.
-      const wy = v.extensionAt(wx / this.PPM) * this.PPM;
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(wx, wy, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = Math.max(1.5, r * 0.22);
-      ctx.stroke();
-
-      ctx.save();
-      ctx.translate(wx, wy);
-      ctx.rotate(v.wheelAngle);
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = Math.max(1, r * 0.13);
-      ctx.beginPath();
-      for (let i = 0; i < 4; i++) {
-        const a = (i * Math.PI) / 2;
-        ctx.moveTo(0, 0);
-        ctx.lineTo(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62);
-      }
-      ctx.stroke();
-      ctx.fillStyle = '#cbd5e1';
-      ctx.beginPath();
-      ctx.arc(0, 0, Math.max(1, r * 0.16), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    ctx.restore();
-  },
-
   drawParticles(ctx) {
     for (const p of this.particles) {
       const s = this.toScreen(p.x, p.y);
@@ -1150,6 +763,25 @@ Object.assign(TrussCraftApp.prototype, {
         ctx.beginPath();
         ctx.arc(s.x, s.y, p.size * 0.5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
+      } else if (p.kind === 'piece') {
+        // A broken half-member: the material, with a jagged break at one end
+        const lw = p.len * this.PPM, th = Math.max(2, p.thick * this.PPM);
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, alpha * 2.2);
+        ctx.translate(s.x, s.y);
+        ctx.rotate(p.rot || 0);
+        ctx.fillStyle = p.color;
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-lw / 2, -th / 2); ctx.lineTo(lw / 2, -th / 2);
+        ctx.lineTo(lw / 2 - th * 0.35, -th * 0.12); ctx.lineTo(lw / 2, th * 0.15);
+        ctx.lineTo(lw / 2 - th * 0.25, th / 2); ctx.lineTo(-lw / 2, th / 2);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.fillRect(-lw / 2, -th / 2, lw * 0.9, th * 0.28);
+        ctx.restore();
         ctx.globalAlpha = 1;
       } else {
         ctx.save();
