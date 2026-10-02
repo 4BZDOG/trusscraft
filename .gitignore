@@ -3,3 +3,4 @@ BridgeBuilderv1.backup.html
 
 # macOS
 .DS_Store
+node_modules/

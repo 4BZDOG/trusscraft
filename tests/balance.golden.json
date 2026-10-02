@@ -1,0 +1,527 @@
+{
+ "L1 depth 1.5 chord steel diag steel": {
+  "won": true,
+  "cost": 2638,
+  "peak": 0.01,
+  "sag": 0.018,
+  "failure": null
+ },
+ "L1 depth 1.5 chord wood diag wood": {
+  "won": true,
+  "cost": 1413,
+  "peak": 0.091,
+  "sag": 0.033,
+  "failure": null
+ },
+ "L1 depth 1.5 chord steel diag wood": {
+  "won": true,
+  "cost": 1773,
+  "peak": 0.042,
+  "sag": 0.018,
+  "failure": null
+ },
+ "L1 depth 1.5 chord wood diag steel": {
+  "won": true,
+  "cost": 2278,
+  "peak": 0.066,
+  "sag": 0.024,
+  "failure": null
+ },
+ "L1 depth 2.5 chord steel diag steel": {
+  "won": true,
+  "cost": 3279,
+  "peak": 0.006,
+  "sag": 0.01,
+  "failure": null
+ },
+ "L1 depth 2.5 chord wood diag wood": {
+  "won": true,
+  "cost": 1626,
+  "peak": 0.051,
+  "sag": 0.017,
+  "failure": null
+ },
+ "L1 depth 2.5 chord steel diag wood": {
+  "won": true,
+  "cost": 1986,
+  "peak": 0.026,
+  "sag": 0.011,
+  "failure": null
+ },
+ "L1 depth 2.5 chord wood diag steel": {
+  "won": true,
+  "cost": 2919,
+  "peak": 0.037,
+  "sag": 0.013,
+  "failure": null
+ },
+ "L1 depth 3.5 chord steel diag steel": {
+  "won": true,
+  "cost": 3961,
+  "peak": 0.006,
+  "sag": 0.008,
+  "failure": null
+ },
+ "L1 depth 3.5 chord wood diag wood": {
+  "won": true,
+  "cost": 1854,
+  "peak": 0.038,
+  "sag": 0.012,
+  "failure": null
+ },
+ "L1 depth 3.5 chord steel diag wood": {
+  "won": true,
+  "cost": 2214,
+  "peak": 0.025,
+  "sag": 0.009,
+  "failure": null
+ },
+ "L1 depth 3.5 chord wood diag steel": {
+  "won": true,
+  "cost": 3601,
+  "peak": 0.025,
+  "sag": 0.01,
+  "failure": null
+ },
+ "L2 depth 1.5 chord steel diag steel": {
+  "won": true,
+  "cost": 4047,
+  "peak": 0.018,
+  "sag": 0.054,
+  "failure": null
+ },
+ "L2 depth 1.5 chord wood diag wood": {
+  "won": true,
+  "cost": 2149,
+  "peak": 0.169,
+  "sag": 0.1,
+  "failure": null
+ },
+ "L2 depth 1.5 chord steel diag wood": {
+  "won": true,
+  "cost": 2749,
+  "peak": 0.065,
+  "sag": 0.053,
+  "failure": null
+ },
+ "L2 depth 1.5 chord wood diag steel": {
+  "won": true,
+  "cost": 3447,
+  "peak": 0.124,
+  "sag": 0.076,
+  "failure": null
+ },
+ "L2 depth 2.5 chord steel diag steel": {
+  "won": true,
+  "cost": 5008,
+  "peak": 0.011,
+  "sag": 0.028,
+  "failure": null
+ },
+ "L2 depth 2.5 chord wood diag wood": {
+  "won": true,
+  "cost": 2469,
+  "peak": 0.096,
+  "sag": 0.046,
+  "failure": null
+ },
+ "L2 depth 2.5 chord steel diag wood": {
+  "won": true,
+  "cost": 3069,
+  "peak": 0.047,
+  "sag": 0.028,
+  "failure": null
+ },
+ "L2 depth 2.5 chord wood diag steel": {
+  "won": true,
+  "cost": 4408,
+  "peak": 0.07,
+  "sag": 0.036,
+  "failure": null
+ },
+ "L2 depth 3.5 chord steel diag steel": {
+  "won": true,
+  "cost": 6031,
+  "peak": 0.013,
+  "sag": 0.021,
+  "failure": null
+ },
+ "L2 depth 3.5 chord wood diag wood": {
+  "won": true,
+  "cost": 2810,
+  "peak": 0.076,
+  "sag": 0.031,
+  "failure": null
+ },
+ "L2 depth 3.5 chord steel diag wood": {
+  "won": true,
+  "cost": 3410,
+  "peak": 0.057,
+  "sag": 0.02,
+  "failure": null
+ },
+ "L2 depth 3.5 chord wood diag steel": {
+  "won": true,
+  "cost": 5431,
+  "peak": 0.047,
+  "sag": 0.024,
+  "failure": null
+ },
+ "L3 depth 1.5 chord steel diag steel": {
+  "won": true,
+  "cost": 5456,
+  "peak": 0.038,
+  "sag": 0.154,
+  "failure": null
+ },
+ "L3 depth 1.5 chord wood diag wood": {
+  "won": true,
+  "cost": 2885,
+  "peak": 0.34,
+  "sag": 0.319,
+  "failure": null
+ },
+ "L3 depth 1.5 chord steel diag wood": {
+  "won": true,
+  "cost": 3725,
+  "peak": 0.081,
+  "sag": 0.147,
+  "failure": null
+ },
+ "L3 depth 1.5 chord wood diag steel": {
+  "won": true,
+  "cost": 4616,
+  "peak": 0.243,
+  "sag": 0.232,
+  "failure": null
+ },
+ "L3 depth 2.5 chord steel diag steel": {
+  "won": true,
+  "cost": 6737,
+  "peak": 0.022,
+  "sag": 0.066,
+  "failure": null
+ },
+ "L3 depth 2.5 chord wood diag wood": {
+  "won": true,
+  "cost": 3312,
+  "peak": 0.177,
+  "sag": 0.114,
+  "failure": null
+ },
+ "L3 depth 2.5 chord steel diag wood": {
+  "won": true,
+  "cost": 4152,
+  "peak": 0.047,
+  "sag": 0.063,
+  "failure": null
+ },
+ "L3 depth 2.5 chord wood diag steel": {
+  "won": true,
+  "cost": 5897,
+  "peak": 0.128,
+  "sag": 0.086,
+  "failure": null
+ },
+ "L3 depth 3.5 chord steel diag steel": {
+  "won": true,
+  "cost": 8102,
+  "peak": 0.016,
+  "sag": 0.043,
+  "failure": null
+ },
+ "L3 depth 3.5 chord wood diag wood": {
+  "won": true,
+  "cost": 3767,
+  "peak": 0.117,
+  "sag": 0.068,
+  "failure": null
+ },
+ "L3 depth 3.5 chord steel diag wood": {
+  "won": true,
+  "cost": 4607,
+  "peak": 0.052,
+  "sag": 0.042,
+  "failure": null
+ },
+ "L3 depth 3.5 chord wood diag steel": {
+  "won": true,
+  "cost": 7262,
+  "peak": 0.086,
+  "sag": 0.053,
+  "failure": null
+ },
+ "L4 depth 1.5 chord steel diag steel": {
+  "won": true,
+  "cost": 4751,
+  "peak": 0.097,
+  "sag": 0.347,
+  "failure": null
+ },
+ "L4 depth 1.5 chord wood diag wood": {
+  "won": false,
+  "cost": 2517,
+  "peak": 0.563,
+  "sag": 2.839,
+  "failure": "deflection"
+ },
+ "L4 depth 1.5 chord steel diag wood": {
+  "won": true,
+  "cost": 3237,
+  "peak": 0.235,
+  "sag": 0.333,
+  "failure": null
+ },
+ "L4 depth 1.5 chord wood diag steel": {
+  "won": false,
+  "cost": 4031,
+  "peak": 0.497,
+  "sag": 2.616,
+  "failure": "deflection"
+ },
+ "L4 depth 2.5 chord steel diag steel": {
+  "won": true,
+  "cost": 5873,
+  "peak": 0.055,
+  "sag": 0.142,
+  "failure": null
+ },
+ "L4 depth 2.5 chord wood diag wood": {
+  "won": true,
+  "cost": 2891,
+  "peak": 0.451,
+  "sag": 0.249,
+  "failure": null
+ },
+ "L4 depth 2.5 chord steel diag wood": {
+  "won": true,
+  "cost": 3611,
+  "peak": 0.134,
+  "sag": 0.137,
+  "failure": null
+ },
+ "L4 depth 2.5 chord wood diag steel": {
+  "won": true,
+  "cost": 5153,
+  "peak": 0.323,
+  "sag": 0.187,
+  "failure": null
+ },
+ "L4 depth 3.5 chord steel diag steel": {
+  "won": true,
+  "cost": 7066,
+  "peak": 0.039,
+  "sag": 0.095,
+  "failure": null
+ },
+ "L4 depth 3.5 chord wood diag wood": {
+  "won": true,
+  "cost": 3289,
+  "peak": 0.295,
+  "sag": 0.149,
+  "failure": null
+ },
+ "L4 depth 3.5 chord steel diag wood": {
+  "won": true,
+  "cost": 4009,
+  "peak": 0.156,
+  "sag": 0.093,
+  "failure": null
+ },
+ "L4 depth 3.5 chord wood diag steel": {
+  "won": true,
+  "cost": 6346,
+  "peak": 0.213,
+  "sag": 0.116,
+  "failure": null
+ },
+ "L7 depth 1.5 chord steel diag steel": {
+  "won": true,
+  "cost": 6865,
+  "peak": 0.017,
+  "sag": 0.036,
+  "failure": null
+ },
+ "L7 depth 1.5 chord wood diag wood": {
+  "won": true,
+  "cost": 3622,
+  "peak": 0.149,
+  "sag": 0.066,
+  "failure": null
+ },
+ "L7 depth 1.5 chord steel diag wood": {
+  "won": true,
+  "cost": 4702,
+  "peak": 0.062,
+  "sag": 0.035,
+  "failure": null
+ },
+ "L7 depth 1.5 chord wood diag steel": {
+  "won": true,
+  "cost": 5785,
+  "peak": 0.109,
+  "sag": 0.05,
+  "failure": null
+ },
+ "L7 depth 2.5 chord steel diag steel": {
+  "won": true,
+  "cost": 8467,
+  "peak": 0.011,
+  "sag": 0.02,
+  "failure": null
+ },
+ "L7 depth 2.5 chord wood diag wood": {
+  "won": true,
+  "cost": 4156,
+  "peak": 0.083,
+  "sag": 0.032,
+  "failure": null
+ },
+ "L7 depth 2.5 chord steel diag wood": {
+  "won": true,
+  "cost": 5236,
+  "peak": 0.037,
+  "sag": 0.02,
+  "failure": null
+ },
+ "L7 depth 2.5 chord wood diag steel": {
+  "won": true,
+  "cost": 7387,
+  "peak": 0.061,
+  "sag": 0.025,
+  "failure": null
+ },
+ "L7 depth 3.5 chord steel diag steel": {
+  "won": true,
+  "cost": 10172,
+  "peak": 0.01,
+  "sag": 0.016,
+  "failure": null
+ },
+ "L7 depth 3.5 chord wood diag wood": {
+  "won": true,
+  "cost": 4724,
+  "peak": 0.058,
+  "sag": 0.023,
+  "failure": null
+ },
+ "L7 depth 3.5 chord steel diag wood": {
+  "won": true,
+  "cost": 5804,
+  "peak": 0.04,
+  "sag": 0.015,
+  "failure": null
+ },
+ "L7 depth 3.5 chord wood diag steel": {
+  "won": true,
+  "cost": 9092,
+  "peak": 0.042,
+  "sag": 0.018,
+  "failure": null
+ },
+ "L5 depth 1.5 chord steel diag steel": {
+  "won": true,
+  "cost": 6160,
+  "peak": 0.039,
+  "sag": 0.198,
+  "failure": null
+ },
+ "L5 depth 1.5 chord wood diag wood": {
+  "won": true,
+  "cost": 3253,
+  "peak": 0.366,
+  "sag": 0.423,
+  "failure": null
+ },
+ "L5 depth 1.5 chord steel diag wood": {
+  "won": true,
+  "cost": 4213,
+  "peak": 0.076,
+  "sag": 0.189,
+  "failure": null
+ },
+ "L5 depth 1.5 chord wood diag steel": {
+  "won": true,
+  "cost": 5200,
+  "peak": 0.262,
+  "sag": 0.305,
+  "failure": null
+ },
+ "L5 depth 2.5 chord steel diag steel": {
+  "won": true,
+  "cost": 7602,
+  "peak": 0.023,
+  "sag": 0.079,
+  "failure": null
+ },
+ "L5 depth 2.5 chord wood diag wood": {
+  "won": true,
+  "cost": 3734,
+  "peak": 0.187,
+  "sag": 0.14,
+  "failure": null
+ },
+ "L5 depth 2.5 chord steel diag wood": {
+  "won": true,
+  "cost": 4694,
+  "peak": 0.044,
+  "sag": 0.076,
+  "failure": null
+ },
+ "L5 depth 2.5 chord wood diag steel": {
+  "won": true,
+  "cost": 6642,
+  "peak": 0.134,
+  "sag": 0.105,
+  "failure": null
+ },
+ "L5 depth 3.5 chord steel diag steel": {
+  "won": true,
+  "cost": 9137,
+  "peak": 0.017,
+  "sag": 0.051,
+  "failure": null
+ },
+ "L5 depth 3.5 chord wood diag wood": {
+  "won": true,
+  "cost": 4246,
+  "peak": 0.123,
+  "sag": 0.08,
+  "failure": null
+ },
+ "L5 depth 3.5 chord steel diag wood": {
+  "won": true,
+  "cost": 5206,
+  "peak": 0.05,
+  "sag": 0.049,
+  "failure": null
+ },
+ "L5 depth 3.5 chord wood diag steel": {
+  "won": true,
+  "cost": 8177,
+  "peak": 0.089,
+  "sag": 0.062,
+  "failure": null
+ },
+ "L5 cantilever top 3.5 steel": {
+  "won": true,
+  "cost": 5311,
+  "peak": 0.045,
+  "sag": 0.1,
+  "failure": null
+ },
+ "L5 cantilever top 4 steel": {
+  "won": true,
+  "cost": 5847,
+  "peak": 0.039,
+  "sag": 0.086,
+  "failure": null
+ },
+ "L5 cantilever top 3.5 wood": {
+  "won": true,
+  "cost": 2370,
+  "peak": 0.164,
+  "sag": 0.143,
+  "failure": null
+ }
+}
