@@ -136,6 +136,8 @@
     overflow-y: hidden;
   }
   #toolbar::-webkit-scrollbar { height: 0; }
+  /* If the toolbar has to scroll sideways, the Test button stays pinned at the right edge. */
+  #btn-test, #btn-edit { position: sticky; right: 0; z-index: 1; }
   .tool-cluster { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
   .divider { width: 1px; height: 26px; background: var(--panel-border); margin: 0 4px; flex-shrink: 0; }
 
@@ -235,6 +237,18 @@
     font-size: 0.75rem;
     z-index: 5;
   }
+  .hud-toggle {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; text-align: left;
+  }
+  .hud-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  .hud-toggle .obj-count { margin-left: auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .hud-toggle .obj-count.bad { color: var(--danger); }
+  .hud-toggle .obj-count.done { color: var(--success); }
+  .hud-toggle .chev { transition: transform 0.15s ease; }
+  #hud-objectives.collapsed .chev { transform: rotate(-90deg); }
+  #hud-objectives.collapsed #obj-list { display: none; }
+  #hud-objectives.collapsed .hud-title { margin-bottom: 0; }
   .hud-title {
     font-size: 0.65rem;
     text-transform: uppercase;
@@ -725,6 +739,17 @@
     color: var(--text);
   }
 
+  /* The toolbar needs ~1,600 px at full size. Shed detail in steps as the window narrows so the
+     Test button is always on screen on a typical laptop, rather than hidden behind a scroll. */
+  @media (max-width: 1500px) {
+    .mat-btn small { display: none; }
+    .mat-btn { flex-direction: row; align-items: center; padding: 7px 10px 7px 26px; }
+    .tool-cluster .btn:not(.mat-btn) kbd { display: none; }
+  }
+  @media (max-width: 1360px) {
+    .btn .lbl { display: none; }
+  }
+
   /* Narrow screens: keep the readouts, drop the decoration. */
   @media (max-width: 900px) {
     .meters { gap: 10px; }
@@ -734,7 +759,18 @@
     #hud-objectives { width: 190px; font-size: 0.7rem; }
     #hud-legend { display: none; }
   }
+  /* Phones and tablets upright: three short rows (materials / tools / actions) instead of a
+     sideways scroll, so the Test button is never off-screen. */
+  @media (max-width: 900px) and (min-height: 521px) {
+    #toolbar { height: auto; flex-wrap: wrap; overflow: visible; padding: 6px 8px; gap: 6px; }
+    #toolbar .tool-cluster { flex: 1 1 100%; flex-wrap: wrap; gap: 5px; }
+    #toolbar .tool-cluster > .btn { flex: 1 1 0; justify-content: center; padding-left: 6px; padding-right: 6px; min-width: 0; }
+    #toolbar .divider { flex-basis: 100%; height: 0; margin: 0; width: auto; }
+    #btn-test, #btn-edit { flex-grow: 2.4 !important; position: static; }
+    .mat-btn { padding-left: 22px !important; }
+  }
   @media (max-width: 700px) {
+    .btn .lbl { display: none; }
     #level-pill { display: none; }
     .brand span { display: none; }
     .mat-btn small { display: none; }
@@ -743,6 +779,21 @@
     #btn-test .btn-long, #btn-edit .btn-long { display: none; }
     #hud-analysis { width: 178px; font-size: 0.7rem; }
     #hud-objectives { width: 168px; }
+  }
+  /* Phones on their side: one compact row; every pixel of height is workspace. */
+  @media (max-height: 520px) and (orientation: landscape) {
+    #header { height: 40px; }
+    #toolbar { height: 44px; padding: 0 8px; gap: 4px; }
+    .tool-cluster { gap: 4px; }
+    .btn { padding-left: 8px; padding-right: 8px; }
+    .btn .lbl, .btn kbd { display: none; }
+    .mat-btn small { display: none; }
+    .mat-btn { padding: 6px 8px 6px 22px; flex-direction: row; }
+    #btn-test .btn-long, #btn-edit .btn-long { display: none; }
+    .divider { margin: 0 2px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   }
 </style>
 </head>
@@ -794,18 +845,18 @@
         <span>Cable <kbd>4</kbd></span><small>$45/m · tension only</small>
       </button>
       <div class="divider"></div>
-      <button class="btn" id="btn-move" title="Move a joint — every member attached to it resizes">✥ Move <kbd>M</kbd></button>
-      <button class="btn" id="btn-erase" title="Eraser — click a member or joint to remove it">🧹 Erase <kbd>E</kbd></button>
-      <button class="btn" id="btn-undo" title="Undo">↩ Undo</button>
-      <button class="btn" id="btn-redo" title="Redo">↪ Redo</button>
-      <button class="btn" id="btn-clear" title="Remove every member">↺ Clear</button>
+      <button class="btn" id="btn-move" title="Move a joint — every member attached to it resizes" aria-label="Move a joint" aria-pressed="false"><span aria-hidden="true">✥</span><span class="lbl"> Move</span> <kbd>M</kbd></button>
+      <button class="btn" id="btn-erase" title="Eraser — click a member or joint to remove it" aria-label="Eraser" aria-pressed="false"><span aria-hidden="true">🧹</span><span class="lbl"> Erase</span> <kbd>E</kbd></button>
+      <button class="btn" id="btn-undo" title="Undo" aria-label="Undo"><span aria-hidden="true">↩</span><span class="lbl"> Undo</span></button>
+      <button class="btn" id="btn-redo" title="Redo" aria-label="Redo"><span aria-hidden="true">↪</span><span class="lbl"> Redo</span></button>
+      <button class="btn" id="btn-clear" title="Remove every member" aria-label="Clear all members"><span aria-hidden="true">↺</span><span class="lbl"> Clear</span></button>
     </div>
 
     <div class="tool-cluster">
-      <button class="btn" id="btn-vectors" title="Show force direction arrows on each member">⇄ Vectors <kbd>V</kbd></button>
-      <button class="btn" id="btn-speed" title="Simulation speed">⏱ <span id="speed-label">1x</span></button>
-      <button class="btn" id="btn-help" title="Engineering handbook">📘 Guide <kbd>?</kbd></button>
-      <button class="btn" id="btn-levels" title="Choose a challenge">🗺 Levels</button>
+      <button class="btn" id="btn-vectors" title="Show force direction arrows on each member" aria-label="Force vectors" aria-pressed="false"><span aria-hidden="true">⇄</span><span class="lbl"> Vectors</span> <kbd>V</kbd></button>
+      <button class="btn" id="btn-speed" title="Simulation speed" aria-label="Simulation speed"><span aria-hidden="true">⏱</span> <span id="speed-label">1x</span></button>
+      <button class="btn" id="btn-help" title="Engineering handbook" aria-label="Engineering handbook"><span aria-hidden="true">📘</span><span class="lbl"> Guide</span> <kbd>?</kbd></button>
+      <button class="btn" id="btn-levels" title="Choose a challenge" aria-label="Choose a challenge"><span aria-hidden="true">🗺</span><span class="lbl"> Levels</span></button>
       <button class="btn btn-primary" id="btn-test" title="Run the load test">▶ Test<span class="btn-long">&nbsp;bridge</span> <kbd>Space</kbd></button>
       <button class="btn btn-danger" id="btn-edit" style="display:none;">⏪ Edit<span class="btn-long">&nbsp;design</span></button>
     </div>
@@ -831,7 +882,9 @@
     <canvas id="simCanvas"></canvas>
 
     <div class="hud-card" id="hud-objectives">
-      <div class="hud-title">Design checklist</div>
+      <button type="button" class="hud-title hud-toggle" id="obj-toggle" aria-expanded="true" aria-controls="obj-list">
+        <span>Design checklist</span><span class="obj-count" id="obj-count"></span><span class="chev" aria-hidden="true">▾</span>
+      </button>
       <div id="obj-list"></div>
     </div>
 
@@ -872,7 +925,7 @@
     <div id="toasts" aria-live="polite"></div>
 
     <div class="modal-backdrop" id="modal">
-      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-card" id="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
         <div class="modal-eyebrow" id="modal-eyebrow">Mission brief</div>
         <h3 class="modal-title" id="modal-title">Bridge brief</h3>
         <div class="modal-body" id="modal-body"></div>
@@ -1290,6 +1343,13 @@ class TrussCraftApp {
     // Presentation state
     this.time = 0;
     this.frameDt = 0;
+    // Shake, camera punch and flashes are the effects that bother people with vestibular
+    // sensitivity or photosensitivity, so they honour the system's reduce-motion setting.
+    const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    this.reduceMotion = !!(motionQuery && motionQuery.matches);
+    if (motionQuery && motionQuery.addEventListener) {
+      motionQuery.addEventListener('change', (e) => { this.reduceMotion = e.matches; });
+    }
     this.shake = 0;
     this.slowmo = 0;
     this.flash = 0;
@@ -1343,15 +1403,34 @@ class TrussCraftApp {
       this.viewW = w;
       this.viewH = h;
 
-      // Fit 24 world metres horizontally, then sit the bank line ~62% down the view
-      this.PPM = Math.min(w / 24, h / 15);
-      this.originX = Math.max(20, (w - 23 * this.PPM) / 2);
-      const groundY = (this.level && this.level.terrain) ? this.level.terrain.groundY : 7;
-      this.originY = clamp(h * 0.62 - groundY * this.PPM, 8, h * 0.45);
+      this.frameLevel(w, h);
     };
     this.handleResize = handleResize;
     window.addEventListener('resize', handleResize);
     handleResize();
+  }
+
+  /**
+   * Fit the camera to what this level needs rather than a fixed 24 m window, so a short
+   * crossing is drawn large on a small screen. The band that must stay visible runs from a
+   * truss-height above the deck (or the highest anchor) down past the water, where the
+   * vehicle lands; it is centred, leaning low so the checklist card sits over empty sky.
+   */
+  frameLevel(w, h) {
+    const lvl = this.level;
+    if (!lvl) { this.PPM = Math.min(w / 24, h / 15); this.originX = 20; this.originY = 8; return; }
+    const t = lvl.terrain;
+    const left = t.leftBank, right = t.rightBank;
+    const topNeeded = Math.min(t.groundY - 4.5, Math.min(...lvl.anchors.map(a => a.y)) - 1.2);
+    const bottomNeeded = t.waterY + 0.8;
+    const visW = Math.max(spanOf(lvl) + 8, 16);           // the gap plus a few metres of bank
+    const visH = bottomNeeded - topNeeded;
+    this.PPM = clamp(Math.min(w / visW, h / visH), 10, 60);
+    this.originX = w / 2 - ((left + right) / 2) * this.PPM;
+    const bandMid = (topNeeded + bottomNeeded) / 2;
+    // originY puts world y=0 on screen; the band is on screen when it lies in [lo, hi].
+    const lo = -topNeeded * this.PPM, hi = h - bottomNeeded * this.PPM;
+    this.originY = clamp(h * 0.55 - bandMid * this.PPM, Math.min(lo, hi), Math.max(lo, hi));
   }
 
   toScreen(x, y) { return { x: this.originX + x * this.PPM, y: this.originY + y * this.PPM }; }
@@ -1532,10 +1611,18 @@ class TrussCraftApp {
     ).join('');
     document.getElementById('modal').classList.add('show');
     this.modalOpen = true;
+    // Move focus into the dialog so keyboard and screen-reader users land in it. The card itself
+    // takes focus, not a button: results appear mid-test, and a student pressing Space to stop
+    // the test must not accidentally activate "Next challenge".
+    const card = document.getElementById('modal-card');
+    card.scrollTop = 0;
+    card.focus({ preventScroll: true });
   }
 
   closeModal() {
     audio.init();
+    const focused = document.activeElement;
+    if (focused && document.getElementById('modal').contains(focused)) focused.blur();
     document.getElementById('modal').classList.remove('show');
     this.modalOpen = false;
     // First time in, walk the student round the interface they otherwise miss.
@@ -2085,6 +2172,7 @@ class TrussCraftApp {
     document.getElementById('coach-title').innerText = step.title;
     document.getElementById('coach-text').innerHTML = step.text;
     document.getElementById('coach-next').innerText = c.i === c.steps.length - 1 ? 'Start building →' : 'Next';
+    document.getElementById('coach-next').focus({ preventScroll: true });
     document.getElementById('coach-dots').innerHTML =
       c.steps.map((_, i) => `<div class="coach-dot ${i === c.i ? 'on' : ''}"></div>`).join('');
 
@@ -2312,8 +2400,9 @@ class TrussCraftApp {
         else if (this.modalOpen) this.closeModal();
         return;
       }
+      if (e.key === 'Tab' && this.modalOpen) { this.trapTab(e); return; }
+      if (blocked) return;                       // a focused dialog button keeps its own Space/Enter
       if (e.key === ' ') e.preventDefault();
-      if (blocked) return;
 
       if (e.key === ' ') {
         this.mode === 'build' ? this.startSimulation() : this.stopSimulation();
@@ -2328,6 +2417,11 @@ class TrussCraftApp {
       } else if (e.key === '?' || k === 'h') {
         this.showHelp();
       }
+    });
+
+    // Firefox activates a focused button on Space's key-up, so cancel that too: Space belongs to the test.
+    window.addEventListener('keyup', (e) => {
+      if (e.key === ' ' && !(this.modalOpen || this.coach)) e.preventDefault();
     });
 
     // ---- toolbar ----
@@ -2358,6 +2452,24 @@ class TrussCraftApp {
     document.getElementById('btn-help').addEventListener('click', () => this.showHelp());
     document.getElementById('btn-levels').addEventListener('click', () => this.showLevels());
 
+    // Checklist: collapsible so a small screen keeps its workspace. The choice is remembered;
+    // with none saved, phones start collapsed and everything else open.
+    const objCard = document.getElementById('hud-objectives');
+    const objToggle = document.getElementById('obj-toggle');
+    const setChecklist = (open, save) => {
+      objCard.classList.toggle('collapsed', !open);
+      objToggle.setAttribute('aria-expanded', String(open));
+      if (save) { try { localStorage.setItem('trusscraft.checklist', open ? 'open' : 'closed'); } catch (e) { /* storage blocked */ } }
+    };
+    let savedChecklist = null;
+    try { savedChecklist = localStorage.getItem('trusscraft.checklist'); } catch (e) { /* storage blocked */ }
+    const compact = window.innerWidth < 700 || window.innerHeight < 520;
+    setChecklist(savedChecklist ? savedChecklist === 'open' : !compact, false);
+    objToggle.addEventListener('click', () => {
+      audio.init(); audio.playUI();
+      setChecklist(objCard.classList.contains('collapsed'), true);
+    });
+
     document.getElementById('coach-next').addEventListener('click', () => this.nextCoach());
     document.getElementById('coach-skip').addEventListener('click', () => { audio.playUI(); this.endCoach(); });
     window.addEventListener('resize', () => { if (this.coach) this.renderCoach(); });
@@ -2376,11 +2488,24 @@ class TrussCraftApp {
       audio.init();
       this.showVectors = !this.showVectors;
       document.getElementById('btn-vectors').classList.toggle('active', this.showVectors);
+      document.getElementById('btn-vectors').setAttribute('aria-pressed', String(this.showVectors));
       audio.playUI();
       if (this.showVectors) {
         this.toast('info', '⇄', 'Arrows pointing <b>inward</b> mean the member is being stretched; <b>outward</b> means squashed.');
       }
     });
+  }
+
+  /** Keep Tab / Shift+Tab cycling inside the open dialog. */
+  trapTab(e) {
+    const card = document.getElementById('modal-card');
+    const items = [...card.querySelectorAll('button:not([disabled]), [href], input, select, [tabindex]:not([tabindex="-1"])')];
+    if (!items.length) { e.preventDefault(); return; }
+    const first = items[0], last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === card)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+    else if (!card.contains(active)) { e.preventDefault(); first.focus(); }
   }
 
   setTool(tool) {
@@ -2389,6 +2514,8 @@ class TrussCraftApp {
     this.cancelMove();
     document.getElementById('btn-erase').classList.toggle('active', tool === 'erase');
     document.getElementById('btn-move').classList.toggle('active', tool === 'move');
+    document.getElementById('btn-erase').setAttribute('aria-pressed', String(tool === 'erase'));
+    document.getElementById('btn-move').setAttribute('aria-pressed', String(tool === 'move'));
     document.querySelectorAll('.mat-btn').forEach(b =>
       b.classList.toggle('active', tool === 'draw' && b.dataset.mat === this.activeMat));
     this.updateCursor();
@@ -2854,6 +2981,11 @@ class TrussCraftApp {
       `<div class="obj-item ${i.state}"><div class="tick">${i.state === 'bad' ? '!' : i.state === 'warn' ? '·' : '✓'}</div><div>${i.text}</div></div>`
     ).join('');
 
+    const done = items.filter(i => i.state === 'done').length;
+    const count = document.getElementById('obj-count');
+    count.textContent = `${done}/${items.length}`;
+    count.className = 'obj-count' + (items.some(i => i.state === 'bad') ? ' bad' : done === items.length ? ' done' : '');
+
     const list = document.getElementById('obj-list');
     if (list.dataset.sig !== html) {
       list.dataset.sig = html;
@@ -3296,10 +3428,12 @@ class TrussCraftApp {
   impact(x, y, power) {
     this.cascade = Math.min(6, this.cascade + 1);
     const stacked = power * (1 + this.cascade * 0.16);
-    this.shake = Math.min(34, this.shake + 9 * stacked);
-    this.flash = Math.min(1, this.flash + 0.45 * stacked);
-    this.zoom = Math.min(1, this.zoom + 0.5 * power);
-    this.zoomFocus = { x, y };
+    if (!this.reduceMotion) {
+      this.shake = Math.min(34, this.shake + 9 * stacked);
+      this.flash = Math.min(1, this.flash + 0.45 * stacked);
+      this.zoom = Math.min(1, this.zoom + 0.5 * power);
+      this.zoomFocus = { x, y };
+    }
     this.addShockwave(x, y, stacked);
     if (this.time - (this.lastRumble || -1) > 0.12) {
       this.lastRumble = this.time;
