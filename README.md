@@ -2,11 +2,11 @@
 
 **▶ Play it here: https://4bzdog.github.io/trusscraft/**
 
-A single-file browser game for teaching **statics**: students build bridges from
+A small browser game for teaching **statics**: students build bridges from
 roadway, timber, steel and cable, then run a live load test and watch the forces
 appear in their structure.
 
-No install, no build step, no dependencies — one HTML file that runs offline.
+No install, no build step, no dependencies — two static files (`index.html` and `vehicle.js`) that run offline.
 
 <!-- Add a screenshot here: drag an image into a GitHub issue, then paste the URL -->
 
@@ -60,7 +60,7 @@ force in kilonewtons and how much of its capacity it is using.
 
 ## Using it in class
 
-- Runs from the live link above, or download `index.html` and open it directly —
+- Runs from the live link above, or download `index.html` and `vehicle.js` together and open `index.html` directly —
   it works with no network connection.
 - Progress and stars are stored per-browser in `localStorage`; it degrades gracefully
   if storage is blocked.
@@ -78,4 +78,9 @@ force in kilonewtons and how much of its capacity it is using.
 - Verlet integration with position-based dynamics constraint relaxation, 16 substeps
   per frame; axial force from strain, with a length-scaled Euler buckling penalty
   in compression.
+- The vehicle (`vehicle.js`) is a rigid body on two spring-and-damper wheels with a cruise
+  controller: it keeps momentum in the air, slows on climbs, pitches when a wheel loses
+  support, and stops against the cliffs and the rock stack. The force each wheel carries is
+  what loads the deck, so a bounce or a landing stresses the bridge harder than a steady roll.
+  It has no DOM dependencies and can be run under Node for testing.
 - Procedurally generated audio and terrain; nothing is loaded from the network.

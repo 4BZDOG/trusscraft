@@ -881,10 +881,11 @@
     </div>
   </div>
 
+<script src="vehicle.js"></script>
 <script>
 /**
  * TRUSSCRAFT — STATICS & DYNAMICS ENGINE
- * Single-file architecture: audio, physics, analysis and rendering.
+ * Audio, structural physics, analysis and rendering live here; the vehicle model is in vehicle.js.
  */
 
 // ============================================================
@@ -1063,6 +1064,10 @@ const EFFICIENCY_FRACTION = 0.75; // spend under this share of budget to earn th
 const SANDBOX_STIFF_FRACTION = 0.6; // sandbox stiffness star: deflect under this share of the limit
 const UNLIMITED_BUDGET = 99999; // a level budget at or above this means "no ceiling" (the sandbox)
 const STUCK_TIMEOUT    = 40;    // simulated seconds before a stalled vehicle ends the test
+// Turns a wheel's force into a downward nudge on the deck joints it rests on, per substep.
+// The structure solver is position-based, so this is a tuning constant, not a unit conversion:
+// level budgets were measured with it, so change it only together with a re-measure.
+const DECK_LOAD_GAIN   = 0.003;
 
 /** Compression a member can carry before it buckles; falls steeply with length. */
 function bucklingCapacity(matKey, length) {
@@ -2975,26 +2980,7 @@ class TrussCraftApp {
     this.renderObjectives();
 
     const t = this.level.terrain;
-    this.vehicle = {
-      x: t.leftBank - 1.6,
-      y: t.groundY - 0.45,
-      startX: t.leftBank - 1.6,
-      vx: 2.2,
-      vy: 0,
-      width: this.level.carMass > 3000 ? 2.4 : this.level.carMass > 1800 ? 2.0 : 1.7,
-      wheelRadius: this.level.carMass > 3000 ? 0.34 : 0.28,
-      mass: this.level.carMass,
-      type: this.level.carMass > 3000 ? 'truck' : this.level.carMass > 1800 ? 'van' : 'car',
-      wheelAngle: 0,
-      tilt: 0,
-      frontY: null,
-      rearY: null,
-      grounded: false,
-      wasGrounded: true,
-      crashed: false,
-      escaped: false,
-      exhaustTimer: 0
-    };
+    this.vehicle = new Vehicle(this.level.carMass, t);
 
     audio.startEngine();
   }
@@ -3031,41 +3017,12 @@ class TrussCraftApp {
     document.getElementById('ui-stress-bar').style.width = Math.min(100, pct) + '%';
   }
 
-  /** Topmost supporting surface under a wheel, or null if it is in mid-air. */
-  probeSupport(wx, wy) {
-    const t = this.level.terrain;
-    let best = null;
-
-    if (wx <= t.leftBank || wx >= t.rightBank) {
-      const d = wy - t.groundY;
-      if (d > -0.45 && d < 0.6) best = { y: t.groundY, member: null, t: 0 };
-    }
-
-    for (const m of this.members) {
-      if (m.broken || m.mat !== 'road') continue;
-      const minX = Math.min(m.n1.x, m.n2.x) - 0.08;
-      const maxX = Math.max(m.n1.x, m.n2.x) + 0.08;
-      if (wx < minX || wx > maxX) continue;
-
-      const segLenX = m.n2.x - m.n1.x;
-      const tt = clamp(segLenX !== 0 ? (wx - m.n1.x) / segLenX : 0.5, 0, 1);
-      const surfaceY = m.n1.y + tt * (m.n2.y - m.n1.y);
-      const penetration = wy - surfaceY;
-
-      if (penetration > -0.4 && penetration < 0.5) {
-        if (!best || surfaceY < best.y) best = { y: surfaceY, member: m, t: tt };
-      }
-    }
-    return best;
-  }
-
   stepPhysics(dt) {
     if (this.mode !== 'test') return;
 
     const subSteps = 16;
     const timeScale = this.slowmo > 0 ? lerp(0.16, 1, 1 - this.slowmo) : 1;
     const subDt = (dt * this.simSpeed * timeScale) / subSteps;
-    const g = 9.81;
 
     for (let step = 0; step < subSteps; step++) {
       // --- 1. Verlet integration ---
@@ -3076,7 +3033,7 @@ class TrussCraftApp {
         n.oldX = n.x;
         n.oldY = n.y;
         n.x += vx;
-        n.y += vy + g * subDt * subDt;
+        n.y += vy + GRAVITY * subDt * subDt;
       }
 
       // --- 2. Constraint relaxation, axial force, Euler buckling ---
@@ -3125,7 +3082,7 @@ class TrussCraftApp {
       }
 
       // --- 3. Vehicle dynamics & load transfer ---
-      if (this.vehicle && !this.vehicle.crashed) this.stepVehicle(subDt, subSteps, g);
+      if (this.vehicle && !this.vehicle.crashed) this.stepVehicle(subDt, subSteps);
 
       this.maxStressObserved = Math.max(this.maxStressObserved, peakStress);
     }
@@ -3232,54 +3189,21 @@ class TrussCraftApp {
     this.impact((m.n1.x + m.n2.x) / 2, (m.n1.y + m.n2.y) / 2, 1);
   }
 
-  stepVehicle(subDt, subSteps, g) {
+  stepVehicle(subDt, subSteps) {
     const v = this.vehicle;
     const t = this.level.terrain;
 
-    v.x += v.vx * subDt;
-    v.vy += g * subDt;
-    v.y += v.vy * subDt;
-    v.wheelAngle += (v.vx * subDt) / v.wheelRadius;
+    v.step(subDt, this.members, t);
 
-    const half = v.width * 0.4;
-    const wy = v.y + 0.35;
-    const rear = this.probeSupport(v.x - half, wy);
-    const front = this.probeSupport(v.x + half, wy);
-
-    v.rearY = rear ? rear.y : null;
-    v.frontY = front ? front.y : null;
-
-    const supports = [rear, front].filter(Boolean);
-    v.wasGrounded = v.grounded;
-    v.grounded = false;
-
-    if (supports.length) {
-      const highest = Math.min(...supports.map(s => s.y));
-      if (wy >= highest - 0.05) {
-        v.y = highest - 0.35;
-        if (v.vy > 2.5 && !v.wasGrounded) audio.playThud();
-        v.vy = 0;
-        v.grounded = true;
-      }
-
-      // Transfer the wheel loads into the deck joints they are resting on.
-      const wheelWeight = (v.mass * g) / 2;
-      const impulse = (wheelWeight * subDt) / subSteps;
-      for (const s of supports) {
-        if (!s.member) continue;
-        const m = s.member;
-        if (!m.n1.fixed) m.n1.y += (1 - s.t) * impulse * 0.003;
-        if (!m.n2.fixed) m.n2.y += s.t * impulse * 0.003;
-      }
+    // The force each wheel is really carrying goes into the deck joints under it.
+    for (const c of v.contacts) {
+      if (!c.member) continue;
+      const nudge = ((c.load * subDt) / subSteps) * DECK_LOAD_GAIN;
+      if (!c.member.n1.fixed) c.member.n1.y += (1 - c.t) * nudge;
+      if (!c.member.n2.fixed) c.member.n2.y += c.t * nudge;
     }
-
-    // Body follows the slope between the two wheels.
-    if (v.rearY !== null && v.frontY !== null) {
-      const targetTilt = Math.atan2(v.frontY - v.rearY, v.width * 0.8);
-      v.tilt = lerp(v.tilt, targetTilt, 0.25);
-    } else {
-      v.tilt = lerp(v.tilt, 0, 0.05);
-    }
+    if (v.landing > 2.5) audio.playThud();
+    v.landing = 0;
 
     // --- Failure: fell into the chasm ---
     if (v.y > t.waterY - 0.2 && !v.splashed) {
@@ -4543,16 +4467,18 @@ class TrussCraftApp {
     // Wheels with rotating spokes
     const wheelXs = v.type === 'truck' ? [-w * 0.34, w * 0.02, w * 0.34] : [-w * 0.32, w * 0.32];
     for (const wx of wheelXs) {
+      // Each wheel hangs on its spring: it drops away when unloaded and rises when it takes weight.
+      const wy = v.extensionAt(wx / this.PPM) * this.PPM;
       ctx.fillStyle = '#0f172a';
       ctx.beginPath();
-      ctx.arc(wx, 0, r, 0, Math.PI * 2);
+      ctx.arc(wx, wy, r, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#334155';
       ctx.lineWidth = Math.max(1.5, r * 0.22);
       ctx.stroke();
 
       ctx.save();
-      ctx.translate(wx, 0);
+      ctx.translate(wx, wy);
       ctx.rotate(v.wheelAngle);
       ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = Math.max(1, r * 0.13);
@@ -4760,7 +4686,8 @@ class TrussCraftApp {
       v.exhaustTimer -= dt;
       if (v.exhaustTimer <= 0) {
         v.exhaustTimer = 0.12;
-        this.emitExhaust(v.x - v.width * 0.5, v.y - 0.05);
+        const tail = v.width * 0.5;           // the pipe is at the back of the body, wherever it is pointing
+        this.emitExhaust(v.x - tail * Math.cos(v.tilt), v.y - tail * Math.sin(v.tilt) - 0.05);
       }
     }
 
