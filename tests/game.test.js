@@ -260,9 +260,9 @@ describe('layout', () => {
       const r = await page.evaluate(() => {
         const levels = LEVELS.map((l, i) => {
           app.loadLevel(i); app.closeModal(); if (app.coach) app.endCoach();
-          const t = l.terrain;
-          const top = app.sy(Math.min(t.groundY - 4.5, Math.min(...l.anchors.map((a) => a.y)) - 1.2));
-          const bottom = app.sy(t.waterY + 0.8);
+          const t = l.terrain, band = app.levelBand(l);
+          const top = app.sy(band.top);
+          const bottom = app.sy(band.bottom);
           return { id: l.id, band: top >= -0.5 && bottom <= app.viewH + 0.5, gap: app.sx(t.leftBank) >= 0 && app.sx(t.rightBank) <= app.viewW };
         });
         const b = document.getElementById('btn-test').getBoundingClientRect();

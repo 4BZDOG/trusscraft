@@ -68,6 +68,7 @@ class TrussCraftApp {
     this.zoom = 0;
     this.zoomFocus = { x: 0, y: 0 };
     this.shockwaves = [];
+    this.ripples = [];             // expanding rings on the water: { x, t, life, power }
     this.cascade = 0;
     this.clouds = Array.from({ length: 7 }, (_, i) => ({
       x: hash1(i * 3.1) * 30 - 3,
@@ -122,6 +123,15 @@ class TrussCraftApp {
     handleResize();
   }
 
+  /** The vertical band, in world metres, that must stay on screen: truss height down to the splash. */
+  levelBand(lvl) {
+    const t = lvl.terrain;
+    return {
+      top: Math.min(t.groundY - 4.5, Math.min(...lvl.anchors.map(a => a.y)) - 1.2),
+      bottom: t.waterY + 1.9                              // enough water to see a splash and the stakes of a fall
+    };
+   }
+
   /**
    * Fit the camera to what this level needs rather than a fixed 24 m window, so a short
    * crossing is drawn large on a small screen. The band that must stay visible runs from a
@@ -133,8 +143,7 @@ class TrussCraftApp {
     if (!lvl) { this.PPM = Math.min(w / 24, h / 15); this.originX = 20; this.originY = 8; return; }
     const t = lvl.terrain;
     const left = t.leftBank, right = t.rightBank;
-    const topNeeded = Math.min(t.groundY - 4.5, Math.min(...lvl.anchors.map(a => a.y)) - 1.2);
-    const bottomNeeded = t.waterY + 0.8;
+    const { top: topNeeded, bottom: bottomNeeded } = this.levelBand(lvl);
     const visW = Math.max(spanOf(lvl) + 8, 16);           // the gap plus a few metres of bank
     const visH = bottomNeeded - topNeeded;
     this.PPM = clamp(Math.min(w / visW, h / visH), 10, 60);
@@ -257,6 +266,7 @@ class TrussCraftApp {
   resetPresentation() {
     this.particles = [];
     this.shockwaves = [];
+    this.ripples = [];
     this.shake = 0;
     this.slowmo = 0;
     this.zoom = 0;
@@ -794,6 +804,7 @@ class TrussCraftApp {
     this.drawSky(ctx);
     this.drawClouds(ctx);
     this.drawHills(ctx);
+    this.drawAmbientBack(ctx);
     this.drawGorgeDepth(ctx);
     this.drawWater(ctx);
     this.drawCliffs(ctx);
@@ -810,6 +821,7 @@ class TrussCraftApp {
     this.drawVehicle(ctx);
     this.drawParticles(ctx);
     this.drawShockwaves(ctx);
+    this.drawAmbientFront(ctx);
 
     ctx.restore();
     this.drawOverlayFX(ctx);
@@ -831,6 +843,10 @@ class TrussCraftApp {
     for (let i = this.shockwaves.length - 1; i >= 0; i--) {
       this.shockwaves[i].t += dt;
       if (this.shockwaves[i].t > this.shockwaves[i].life) this.shockwaves.splice(i, 1);
+    }
+    for (let i = this.ripples.length - 1; i >= 0; i--) {
+      this.ripples[i].t += dt;
+      if (this.ripples[i].t > this.ripples[i].life) this.ripples.splice(i, 1);
     }
 
     this.stepPhysics(dt);

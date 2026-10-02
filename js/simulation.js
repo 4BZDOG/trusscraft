@@ -450,7 +450,15 @@ Object.assign(TrussCraftApp.prototype, {
     }
   },
 
+  /** A ring spreading across the water where something landed. */
+  addRipple(x, power = 1) {
+    this.ripples.push({ x, t: 0, life: 1.1 + 0.4 * power, power });
+    if (this.ripples.length > 24) this.ripples.shift();
+  },
+
   emitSplash(x, y) {
+    this.addRipple(x, 1.4);
+    this.ripples.push({ x, t: -0.18, life: 1.5, power: 0.9 });     // a second ring, a beat behind
     for (let i = 0; i < 26; i++) {
       this.addParticle({
         kind: 'splash',
@@ -509,6 +517,7 @@ Object.assign(TrussCraftApp.prototype, {
       // Debris hitting the water makes its own little splash
       if (p.kind === 'debris' && p.y > waterY && !p.splashed) {
         p.splashed = true;
+        this.addRipple(p.x, 0.3);
         p.life = Math.min(p.life, 0.25);
         for (let k = 0; k < 3; k++) {
           this.addParticle({
