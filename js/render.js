@@ -875,6 +875,44 @@ Object.assign(TrussCraftApp.prototype, {
     ctx.textBaseline = 'alphabetic';
   },
 
+  /** Ring the first thing to fail, so a student can see where and what gave way. */
+  drawFailureMarker(ctx) {
+    const f = this.firstFailure;
+    if (this.mode !== 'test' || !f) return;
+    const label = f.type === 'deflection' ? 'Deck folded here'
+                : f.type === 'compression' ? 'Buckled here' : 'Snapped here';
+    const p = this.toScreen(f.x, f.y);
+    const sc = this.PPM / 40;
+    const pulse = 0.6 + 0.4 * Math.sin(this.time * 6);
+
+    ctx.save();
+    ctx.strokeStyle = '#f87171';
+    ctx.globalAlpha = pulse;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 22 * sc + Math.sin(this.time * 6) * 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    ctx.font = `700 ${Math.max(10, 11 * sc)}px ui-monospace, Menlo, monospace`;
+    const w = ctx.measureText(label).width + 16;
+    const y = p.y - 36 * sc;
+    ctx.fillStyle = 'rgba(69, 10, 10, 0.92)';
+    ctx.beginPath();
+    ctx.roundRect(p.x - w / 2, y - 10, w, 20, 5);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.7)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#fecaca';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, p.x, y + 0.5);
+    ctx.restore();
+  },
+
   drawGhostStrut(ctx) {
     if (!this.dragStartNode || this.mode === 'test') return;
     const snap = this.snapGrid(this.mouseWorld.x, this.mouseWorld.y);

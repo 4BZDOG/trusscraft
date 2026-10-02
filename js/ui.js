@@ -162,8 +162,14 @@ Object.assign(TrussCraftApp.prototype, {
 
   /** Contextual coaching after a failed run, based on what the structure looked like. */
   diagnoseDesign(primaryIsDeck) {
-    const a = this.analysis || this.analyze();
+    // Judge the design that was tested, not the wreckage: after a collapse the broken members are
+    // gone, which would hide the very bracing (or lack of it) that explains the failure.
+    const a = this.testStartAnalysis || this.analysis || this.analyze();
     const notes = [];
+    const folded = this.firstFailure && this.firstFailure.type === 'deflection';
+    if (folded && this.testStartInclined && a.unbraced > 0) {
+      notes.push('Your roadway rises and falls, which is fine for the car — but two road members that meet at a joint are only <b>pinned</b> together. Being connected is not the same as being stiff: the joint folds like a hinge (marked on the screen). Add a wood or steel triangle under or over each joint to hold its shape.');
+    }
     if (!a.deckSpans && !primaryIsDeck) notes.push('The roadway did not reach all the way across — the vehicle drove off into the gap.');
     if (a.roadOnly) notes.push('The whole structure is roadway. Roadway is the surface, not the support — it needs wood, steel or cable bracing behind it.');
     if (a.unbraced > 0) notes.push(`${a.unbraced} deck joint${a.unbraced > 1 ? 's have' : ' has'} no diagonal bracing, so the deck is acting like a plank rather than a truss.`);
@@ -996,7 +1002,7 @@ Object.assign(TrussCraftApp.prototype, {
       }
     }
     if (member.mat === 'road' && member.restLen > 3) {
-      this.hint('long-road', 'Long unsupported deck sections sag badly. Break the roadway into shorter spans with a joint between each.');
+      this.hint('long-road', 'A long run of roadway sags. Add a joint partway along — but roadway joints are only <b>pinned</b>, so brace each one with a wood or steel triangle or the deck will fold there.', 7000);
     }
     if (this.members.length === 6) {
       this.hint('checklist', 'Watch the <b>design checklist</b> in the top-left — it updates as you build.');

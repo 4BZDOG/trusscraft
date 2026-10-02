@@ -42,10 +42,17 @@ const EFFICIENCY_FRACTION = 0.75; // spend under this share of budget to earn th
 const SANDBOX_STIFF_FRACTION = 0.6; // sandbox stiffness star: deflect under this share of the limit
 const UNLIMITED_BUDGET = 99999; // a level budget at or above this means "no ceiling" (the sandbox)
 const STUCK_TIMEOUT    = 40;    // simulated seconds before a stalled vehicle ends the test
-// Turns a wheel's force into a downward nudge on the deck joints it rests on, per substep.
+// The structure solver advances in fixed steps of simulated time, however long a frame takes.
+// It is tuned at 60 fps, which is 16 steps of 1/960 s; stepping by a fixed amount (rather than
+// splitting each frame into 16) means a bridge behaves the same on a slow machine as a fast one.
+// Before this, a two-span hump that stood at 60 fps cracked at 20 fps.
+const PHYSICS_DT       = 1 / 960;  // seconds of simulated time per solver step
+const MAX_STEPS_PER_FRAME = 160;   // a stalled tab drops its backlog instead of spiralling
+// Turns a wheel's force into a downward nudge on the deck joints it rests on, per solver step.
 // The structure solver is position-based, so this is a tuning constant, not a unit conversion:
-// level budgets were measured with it, so change it only together with a re-measure.
-const DECK_LOAD_GAIN   = 0.003;
+// level budgets were measured with it (as 0.003 / 16 at the 60 fps step), so change it only
+// together with a re-measure.
+const DECK_LOAD_GAIN   = 0.003 / 16;
 
 /** Compression a member can carry before it buckles; falls steeply with length. */
 function bucklingCapacity(matKey, length) {

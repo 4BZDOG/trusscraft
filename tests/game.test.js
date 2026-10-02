@@ -86,6 +86,85 @@ describe('the lesson', () => {
   }));
 });
 
+describe('frame-rate independence', () => {
+  // A two-span hump (apex 8 m, 6.5 m high) used to stand at 60 fps but crack at its joint at 20 fps,
+  // because each frame was split into 16 steps of whatever length the frame happened to be.
+  test('a hump bridge behaves the same on a slow machine as a fast one', () => withGame(async (page) => {
+    const rows = await page.evaluate(() => {
+      const out = [];
+      for (const apexY of [6, 6.5]) for (const fps of [144, 60, 30, 20, 15]) for (const speed of [0.25, 1, 2]) {
+        app.loadLevel(0); app.closeModal(); if (app.coach) app.endCoach();
+        const L = app.nodes.find((n) => n.fixed && n.x === 4), R = app.nodes.find((n) => n.fixed && n.x === 12);
+        const apex = app.createNode(8, apexY, false);
+        app.createMember(L, apex, 'road'); app.createMember(apex, R, 'road');
+        app.simSpeed = speed; app.startSimulation();
+        drive(150, 1 / fps, () => app.resultShown);
+        out.push({ apexY, fps, speed, won: !!app.vehicle.escaped, sag: app.maxSag, failure: app.firstFailure && app.firstFailure.type });
+        app.stopSimulation(); app.closeModal();
+      }
+      return out;
+    });
+    const lost = rows.filter((r) => !r.won);
+    assert.deepEqual(lost, [], `${lost.length} run(s) failed`);
+    for (const apexY of [6, 6.5]) {
+      const sags = rows.filter((r) => r.apexY === apexY).map((r) => r.sag);
+      assert.ok(Math.max(...sags) - Math.min(...sags) < 0.03, `apex ${apexY}: sag ranged ${Math.min(...sags).toFixed(3)} to ${Math.max(...sags).toFixed(3)} across frame rates`);
+    }
+  }));
+
+  test('a stalled tab drops its backlog instead of running thousands of steps', () => withGame(async (page) => {
+    const steps = await page.evaluate(() => {
+      buildTruss(0, { depth: 3 }); app.startSimulation();
+      let n = 0; const real = app.solveStep.bind(app); app.solveStep = (dt) => { n++; real(dt); };
+      app.stepPhysics(30);                      // a 30-second hiccup in one frame
+      return n;
+    });
+    assert.ok(steps <= 160, `ran ${steps} steps`);
+  }));
+});
+
+describe('explaining a failure', () => {
+  test('a long road member warns that road joints are only pinned', () => withGame(async (page) => {
+    const text = await page.evaluate(() => {
+      app.loadLevel(0); app.closeModal(); if (app.coach) app.endCoach();
+      const L = app.nodes.find((n) => n.fixed && n.x === 4);
+      const m = app.createMember(L, app.createNode(8, 6, false), 'road');
+      app.afterBuildFeedback(m);
+      return [...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | ');
+    });
+    assert.match(text, /pinned/);
+  }));
+
+  test('a rising-and-falling deck that folds at an unbraced joint is explained and marked', () => withGame(async (page) => {
+    const r = await page.evaluate(() => {
+      app.loadLevel(0); app.closeModal(); if (app.coach) app.endCoach();
+      const L = app.nodes.find((n) => n.fixed && n.x === 4), R = app.nodes.find((n) => n.fixed && n.x === 12);
+      const a = app.createNode(6, 6, false), b = app.createNode(8, 5.5, false), c = app.createNode(10, 6, false);
+      [[L, a], [a, b], [b, c], [c, R]].forEach(([p, q]) => app.createMember(p, q, 'road'));
+      app.startSimulation();
+      drive(25, 1 / 60, () => app.resultShown);
+      const body = document.getElementById('modal-body').textContent;
+      app.render();                                  // the failure marker must draw without error
+      return { failure: app.firstFailure && app.firstFailure.type, body, shown: app.resultShown };
+    });
+    assert.equal(r.failure, 'deflection');
+    assert.ok(r.shown);
+    assert.match(r.body, /pinned/);
+    assert.match(r.body, /not the same as being stiff/);
+  }));
+
+  test('a straight flat deck does not get the rising-and-falling advice', () => withGame(async (page) => {
+    const body = await page.evaluate(() => {
+      app.loadLevel(0); app.closeModal(); if (app.coach) app.endCoach();
+      let prev = app.nodes.find((n) => n.fixed && n.x === 4);
+      for (let x = 6; x <= 12; x += 2) { const n = app.findNearestNode(x, 7, 0.05) || app.createNode(x, 7, false); app.createMember(prev, n, 'road'); prev = n; }
+      app.startSimulation(); drive(25, 1 / 60, () => app.resultShown);
+      return document.getElementById('modal-body').textContent;
+    });
+    assert.doesNotMatch(body, /rises and falls/);
+  }));
+});
+
 describe('editing', () => {
   test('dragging lays a member and undo removes it', () => withGame(async (page) => {
     await page.evaluate(() => { app.closeModal(); app.endCoach && app.coach && app.endCoach(); app.selectMaterial('road'); });
